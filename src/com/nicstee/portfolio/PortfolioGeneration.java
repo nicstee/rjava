@@ -1,22 +1,25 @@
 package com.nicstee.portfolio;
 
-import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.SQLException;
 
 public class PortfolioGeneration {
 
 	public static void main(String[] args) throws SQLException {
-
-		Politic politic = new PoliticBase();
-		politic.setArbitrationDay(3);		
-		Portfolio portfolio = new Portfolio();
-		portfolio.setPolitic(politic);
-//		Portfolio.setConn();
-//		portfolio.stocksGeneration(Date.valueOf("2017-01-01"));
-//		portfolio.DividendsLoading(Date.valueOf("2017-01-16"), 5);
-		
-		portfolio.calculate("essai1",BigDecimal.valueOf(1000000.),Date.valueOf("2016-01-15"));
+//
+//		1er param. = le nombre max. d'actions en portefeuille
+//		2me param. = le jour du mois d'arbitrage
+//		3me param. = nbre de mois pour commencer les arbitrages
+		Politic politic = new PoliticBase(9,3,3);
+//
+//
+//		1er param. = le nom du portefeuille
+//		2me param. = la strategie
+//		3me param. = la date d'ouverture du portefeuille
+//		4me param. = l'investissement, nombre floating > 0
+//		5me param. = commission achat/vente en pourcent
+//
+		new Portfolio("essai1",politic,"2014-01-15",1000000.,0.2);
+//
 		Portfolio.close();
 		System.out.println("END");
 	}
