@@ -44,19 +44,26 @@ public class PoliticBase implements Politic{
         }
 		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
 		Collections.sort(vectorPurchaseStocks);
-		System.out.print("D " + creation +" Ac. achetés ");
+//		System.out.print("D " + creation +" Ac. achetés ");
         int countNbStocks = 0;
 		for(Stock s : vectorPurchaseStocks){
         	countNbStocks=countNbStocks+1;
+           	if(countNbStocks > maxStocks){
+        		break;
+        	}
 			int id_stock = s.id_stock;
-			BigDecimal quote = Portfolio.quote(creation, id_stock);
-        	if(quote.compareTo(new BigDecimal(0.))<=0)continue;
-        	int quantite = inv_by_stock.divide(quote,2,RoundingMode.HALF_DOWN).intValue();
-        	portfolio.stocksPurchase(id_stock, creation, quantite);
-			System.out.print(" "+s.id_stock);
-        	if(countNbStocks > maxStocks)break;
+			s.quote = Portfolio.quote(creation, id_stock);
+        	if(s.quote.compareTo(new BigDecimal(0.))<=0){
+        		System.out.println("pas de cotation pour "+ id_stock);
+        		continue;
+        	}
+        	s.quantity = inv_by_stock.divide(s.quote,2,RoundingMode.HALF_DOWN).intValue();
+        	portfolio.stocksPurchase(id_stock, creation, s);
  		}
-		System.out.println(" ");
+		System.out.println("");
+		int dim = vectorPurchaseStocks.size();		
+		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(countNbStocks-1);
+		Portfolio.print("Actions achetées",creation,vectorPurchaseStocks);
 	    return;
 	}
 	
@@ -65,7 +72,7 @@ public class PoliticBase implements Politic{
 		if(currentDay.getDate() != arbitrationDay)return;
 		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
 		Vector<Stock> vectorSellStocks = new Vector<Stock>();
-		System.out.print("D "+ currentDay);
+//		System.out.print("D "+ currentDay);
 	// Ventes
 		ResultSet rsActives = portfolio.getActiveStocks(currentDay);
 		ResultSet rsNotActives = portfolio.getNotActiveStocks(currentDay);
@@ -74,30 +81,47 @@ public class PoliticBase implements Politic{
 			vectorSellStocks.add(new Stock(id_stock,0,perfStockForSell(currentDay,id_stock)));
 		}		
 		Collections.sort(vectorSellStocks);
-		System.out.print(" Actives");
-		for(Stock s : vectorSellStocks)System.out.print(" "+s.id_stock);
-		System.out.print(" vendues");		
+//		System.out.print(" Actives");
+//		for(Stock s : vectorSellStocks)System.out.print(" "+s.id_stock);
+//		System.out.println("");
+		System.out.print("Actions vendues le "+ currentDay+"\n");		
 		if (vectorSellStocks.size() > 0 ){
 			Stock s = vectorSellStocks.firstElement();
-			System.out.print(" "+s.id_stock);
-			portfolio.stocksSell(s.id_stock,currentDay,99999);
+//			System.out.print(" "+s.id_stock);
+			s.quantity=9999;
+			portfolio.stocksSell(s.id_stock,currentDay,s);
+			System.out.print(" " + s.name);
+			System.out.print(" quantité "+ s.quantity);
+			System.out.print(" cotation "+ s.quote);
+			System.out.print(" montant "+ s.amount);
+			System.out.print(" coût "+ s.cost);
+			System.out.print(" valeur du portefeuille " + Portfolio.PortfolioValue(currentDay));
+			System.out.println(" cash " + Portfolio.cash(currentDay));
 		}
-		System.out.println(" ");
+//		System.out.println(" ");
 	// Achats
 		while(rsNotActives.next()){
 			int id_stock=rsNotActives.getInt("id_stock");
 			vectorPurchaseStocks.add(new Stock(id_stock,0,perfStockForPurchase(currentDay,id_stock)));
 		}
 		Collections.sort(vectorPurchaseStocks);
-		System.out.print(" Not Actives");
-		for(Stock s : vectorPurchaseStocks)System.out.print(" "+s.id_stock);
-		System.out.print(" Achetées");		
+//		System.out.print(" Not Actives");
+//		for(Stock s : vectorPurchaseStocks)System.out.print(" "+s.id_stock);
+//		System.out.println("");
+		System.out.print("Actions Achetées le "+ currentDay+"\n");		
 		if (vectorPurchaseStocks.size() > 0 ){
 			Stock s = vectorPurchaseStocks.firstElement();
-			System.out.print(" "+s.id_stock + "< ");
-			portfolio.stocksPurchase(s.id_stock,currentDay,99999);
+			s.quantity=99999;
+			portfolio.stocksPurchase(s.id_stock,currentDay,s);
+			System.out.print(" " + s.name);
+			System.out.print(" quantité "+ s.quantity);
+			System.out.print(" cotation "+ s.quote);
+			System.out.print(" montant "+ s.amount);
+			System.out.print(" coût "+ s.cost);
+			System.out.print(" valeur du portefeuille " + Portfolio.PortfolioValue(currentDay));
+			System.out.println(" cash " + Portfolio.cash(currentDay));
 		}
-		System.out.println("");
+//		System.out.println("");
 	}
 	
 	private double perfStockForSell(Date currentDay, int id_stock) {	
