@@ -18,7 +18,7 @@ public class PortfolioGeneration {
 //		4me param. = l'investissement, nombre floating > 0
 //		5me param. = commission achat/vente en pourcent
 //
-		new Portfolio("essai1",politic,"2014-01-15",1000000.,0.2);
+		new Portfolio("essai1",politic,"2016-01-15",1000000.,0.2);
 //
 		Portfolio.close();
 		System.out.println("END");
