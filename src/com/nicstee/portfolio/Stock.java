@@ -25,7 +25,7 @@ public class Stock implements Comparable<Stock>
 		this.quantity = quantity;
 		this.perf = perf;
 	    String req = String.format(
-	    	    "select code,description,pays,currency,(select quoteStock('%s',%s)) as quoteEur from stocks where id = %s",
+	    	    "select code,description,pays,currency,(select quoteStockeur('%s',%s)) as quoteEur from stocks where id = %s",
 	    	    date,id_stock,id_stock);
 	    	//  System.out.println(req);
 	    	  Statement stmt = Portfolio.conn.createStatement();

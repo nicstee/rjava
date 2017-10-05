@@ -42,7 +42,7 @@ public class PoliticBase implements Politic{
 		while (rs.next()) {
 			int id_stock = rs.getInt("id");
 			vectorPurchaseStocks.add(
-			new Stock(creation,id_stock,0,this.perfStockForPurchase(creation,id_stock)));
+					new Stock(creation,id_stock,0,this.perfStockForPurchase(creation,id_stock)));
 		}
 		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
 		Collections.sort(vectorPurchaseStocks);
@@ -59,14 +59,13 @@ public class PoliticBase implements Politic{
 				continue;
 			}
 			s.quantity = inv_by_stock.divide(s.quoteEur,2,RoundingMode.HALF_DOWN).intValue();
-			portfolio.stocksPurchase(id_stock, creation, s);
 		}
 		System.out.println("");
 		int dim = vectorPurchaseStocks.size();	
 		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(countNbStocks-1);
 		portfolio.stocksPurchase(creation,vectorPurchaseStocks);
-		System.out.print("valeur du portefeuille " + portfolio.portfolioValue(creation));
-		System.out.println(" cash " + portfolio.getCash(creation)+"\n");
+//		System.out.print("valeur du portefeuille " + portfolio.portfolioValue(creation));
+//		System.out.println(" cash " + portfolio.getCash(creation)+"\n");
 		portfolio.printPortfolio(creation);
 		return;
 	}
@@ -76,7 +75,6 @@ public class PoliticBase implements Politic{
 		if(currentDay.getDate() != arbitrationDay)return;
 		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
 		Vector<Stock> vectorSellStocks = new Vector<Stock>();
-		//		System.out.print("D "+ currentDay);
 		System.out.println("");
 		// Ventes
 		ResultSet rsActives = portfolio.getActiveStocks(currentDay);
@@ -91,8 +89,6 @@ public class PoliticBase implements Politic{
 		vectorSellStocks.clear();
 		vectorSellStocks.add(stockToSell);
 		portfolio.stocksSell(currentDay,vectorSellStocks);
-//			System.out.print(" valeur du portefeuille " + portfolio.portfolioValue(currentDay));
-//			System.out.println(" cash EUR " + portfolio.getCash(currentDay));
 		// Achats
 		while(rsNotActives.next()){
 			int id_stock=rsNotActives.getInt("id_stock");
@@ -104,24 +100,8 @@ public class PoliticBase implements Politic{
 		vectorPurchaseStocks.clear();
 		vectorPurchaseStocks.add(stockToPurchase);
 		portfolio.stocksPurchase(currentDay,vectorPurchaseStocks);
-//		System.out.println("Actions Achetées le "+ currentDay);		
-//		if (vectorPurchaseStocks.size() > 0 ){
-//			Stock s = vectorPurchaseStocks.firstElement();
-//			s.quantity=99999;
-//			portfolio.stocksPurchase(s.id_stock,currentDay,s);
-//			System.out.print(" " + s.id_stock);
-//			System.out.print(" " + s.code);
-//			System.out.print(" quantité "+ s.quantity);
-//			System.out.print(" cotation EUR "+ s.quoteEur);
-//			System.out.print(" montant EUR "+ s.amount);
-//			System.out.println(" coût EUR "+ s.cost);
-//			System.out.print(" valeur EUR du portefeuille " + portfolio.portfolioValue(currentDay));
-//			System.out.println(" cash EUR " + portfolio.getCash(currentDay)+"\"");
-//		}
 		portfolio.printPortfolio(currentDay);
 		System.out.println("");
-
-
 	}
 
 	double perfStockForSell(Date currentDay, int id_stock) {	
