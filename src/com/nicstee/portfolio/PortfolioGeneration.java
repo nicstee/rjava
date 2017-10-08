@@ -10,7 +10,7 @@ public class PortfolioGeneration {
 //		1er param. = le nombre max. d'actions en portefeuille
 //		2me param. = le jour du mois d'arbitrage
 //		3me param. = nbre de mois pour commencer les arbitrages
-		Politic politic = new PoliticBase(12,3,3);
+		Politic politic = new PoliticMaxFall(12,3,3);
 //
 //
 //		1er param. = le nom du portefeuille
@@ -20,8 +20,8 @@ public class PortfolioGeneration {
 //		5me param. = l'investissement, nombre floating > 0
 //		6me param. = commission achat/vente en pourcent
 //
-		new Portfolio("essai1",politic,"2014-01-15","2017-09-15",1000000.,0.2);
-		new Portfolio("essai1");
+		new Portfolio("essai1",politic,"2007-01-15","2017-09-15",1000000.,0.2);
+//		new Portfolio("essai1");
 //
 		Portfolio.close();
 		System.out.println("END");

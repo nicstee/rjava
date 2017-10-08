@@ -25,7 +25,7 @@ public class Portfolio {
 	static int OP_COST = 4;
 	static int OP_TAX_DIVIDENDS = 5;
 
-	static Connection conn;
+	public static Connection conn;
 
 	int id_portfolio;
 	Date dCreation;
@@ -334,11 +334,11 @@ public class Portfolio {
 
 	public ResultSet getNotActiveStocks(Date day) throws SQLException {
 		Statement stmt = conn.createStatement();
-		String req = String.format("select id as id_stock from stocks where actived and id not in "+
+		String req = String.format("select id as id_stock from stocks where actived and firstquote <= '%s' and id not in "+
 				"(select distinct id_stock from movements" +
 				" where id_portfolio = %s and type in (%s,%s) and date < '%s'"+
 				"group by id_stock having sum(quantity) > 0)",
-				id_portfolio,OP_STOCK_IN,OP_STOCK_OUT, day);
+				day,id_portfolio,OP_STOCK_IN,OP_STOCK_OUT, day);
 		//	System.out.println(req);
 		return stmt.executeQuery(req);
 	}
@@ -433,12 +433,12 @@ public class Portfolio {
 					String code = rs.getString("code".trim());
 					int quantity = rs.getInt("quantity");
 					BigDecimal quote = rs.getBigDecimal("quote");
-					BigDecimal amount = quote.multiply(BigDecimal.valueOf(quantity));
-					sAmount = sAmount.add(amount);
 					System.out.print(" " + id_stock);
 					System.out.print(" " + code);
 					System.out.print(" qty " + quantity);
 					System.out.print(" cot " + quote);
+					BigDecimal amount = quote.multiply(BigDecimal.valueOf(quantity));
+					sAmount = sAmount.add(amount);
 					System.out.print(" mt " + amount);
 				}else{
 					flag = false;
@@ -449,7 +449,7 @@ public class Portfolio {
 		}
 		System.out.print("Total Portefeuille " + sAmount + " cash " + getCash(date));
 		if(date.after(dCreation))System.out.print(" rendement " + portfolioRendement(date));
-		System.out.println("");
+		System.out.println("%");
 	}
 
 	public double portfolioRendement(Date date) throws SQLException{

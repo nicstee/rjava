@@ -36,7 +36,7 @@ public class PoliticBase implements Politic{
 		c.add(Calendar.MONTH, this.firstArbitrationMonth);  // number of days to add
 		endArbitration = new java.sql.Date(c.getTimeInMillis());
 		Statement stmt = Portfolio.conn.createStatement();
-		String req = "SELECT id FROM stocks where actived order by id";
+		String req = String.format("SELECT id FROM stocks where actived and firstquote <= '%s' order by id",creation);
 		//        System.out.println(req);
 		ResultSet rs = stmt.executeQuery(req);
 		while (rs.next()) {
@@ -104,11 +104,11 @@ public class PoliticBase implements Politic{
 		System.out.println("");
 	}
 
-	double perfStockForSell(Date currentDay, int id_stock) {	
+	double perfStockForSell(Date currentDay, int id_stock) throws SQLException {	
 		return rd.nextDouble();
 	}
 
-	double perfStockForPurchase(Date currentDay, int id_stock) {
+	double perfStockForPurchase(Date currentDay, int id_stock) throws SQLException {
 		return rd.nextDouble();
 	}
 
