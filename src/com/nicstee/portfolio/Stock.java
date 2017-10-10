@@ -19,11 +19,10 @@ public class Stock implements Comparable<Stock>
 	public BigDecimal quoteEur;
 	public String currency;
 	
-	public Stock(Date date, int id_stock, int quantity, double perf) throws SQLException
+	public Stock(Date date, int id_stock, int quantity) throws SQLException
 	{
 		this.id_stock = id_stock;
 		this.quantity = quantity;
-		this.perf = perf;
 	    String req = String.format(
 	    	    "select code,description,pays,currency,(select quoteStockeur('%s',%s)) as quoteEur from stocks where id = %s",
 	    	    date,id_stock,id_stock);
@@ -39,7 +38,7 @@ public class Stock implements Comparable<Stock>
 	
 	public Stock getInvertedPoint() throws SQLException
 	{
-		return new Stock(date,id_stock, quantity, perf);
+		return new Stock(date,id_stock, quantity);
 	}
 
 	@Override

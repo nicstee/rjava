@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.Vector;
 
-public class PoliticBase implements Politic{
+public abstract class PoliticBase implements Politic{
 
 	Portfolio portfolio;
 	int arbitrationDay;
@@ -21,12 +21,12 @@ public class PoliticBase implements Politic{
 	Date endArbitration;
 	Random rd;
 
-	public PoliticBase(int maxStocks, int nbMonthToStartArbitration, int monthDayForArbitration) {
+	public PoliticBase(long seed,int maxStocks, int nbMonthToStartArbitration, int monthDayForArbitration) {
 		this.maxStocks = maxStocks;
 		this.firstArbitrationMonth = nbMonthToStartArbitration;
 		this.arbitrationDay = monthDayForArbitration;
 		rd = new Random();
-		rd.setSeed(10);	
+		rd.setSeed(seed);
 	}
 
 	public void initPortfolio(BigDecimal cash, Date creation) throws SQLException, IOException{
@@ -41,8 +41,9 @@ public class PoliticBase implements Politic{
 		ResultSet rs = stmt.executeQuery(req);
 		while (rs.next()) {
 			int id_stock = rs.getInt("id");
-			vectorPurchaseStocks.add(
-					new Stock(creation,id_stock,0,this.perfStockForPurchase(creation,id_stock)));
+			Stock s = new Stock(creation,id_stock,0);
+			s.perf = perfStockForPurchase(creation,id_stock);
+			vectorPurchaseStocks.add(s);
 		}
 		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
 		Collections.sort(vectorPurchaseStocks);
@@ -64,8 +65,6 @@ public class PoliticBase implements Politic{
 		int dim = vectorPurchaseStocks.size();	
 		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(countNbStocks-1);
 		portfolio.stocksPurchase(creation,vectorPurchaseStocks);
-//		System.out.print("valeur du portefeuille " + portfolio.portfolioValue(creation));
-//		System.out.println(" cash " + portfolio.getCash(creation)+"\n");
 		portfolio.printPortfolio(creation);
 		return;
 	}
@@ -73,44 +72,39 @@ public class PoliticBase implements Politic{
 	public void arbitrationStocks(Portfolio portfolio, Date currentDay) throws SQLException, IOException{
 		if(currentDay.before(endArbitration))return;
 		if(currentDay.getDate() != arbitrationDay)return;
-		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
-		Vector<Stock> vectorSellStocks = new Vector<Stock>();
-		System.out.println("");
-		// Ventes
-		ResultSet rsActives = portfolio.getActiveStocks(currentDay);
-		ResultSet rsNotActives = portfolio.getNotActiveStocks(currentDay);
-		while(rsActives.next()){
-			int id_stock=rsActives.getInt("id_stock");
-			vectorSellStocks.add(new Stock(currentDay,id_stock,0,perfStockForSell(currentDay,id_stock)));
-		}		
+		Vector<Stock> vectorSellStocks = portfolio.getVectorActiveStocks(currentDay);
+		java.util.Iterator<Stock> itr = vectorSellStocks.iterator();
+		 while(itr.hasNext()){
+			 Stock s =itr.next();
+			 s.perf=perfStockForSell(currentDay,s.id_stock);		 
+		 }
 		Collections.sort(vectorSellStocks);
 		Stock stockToSell=vectorSellStocks.firstElement();
 		stockToSell.quantity=9999;
 		vectorSellStocks.clear();
 		vectorSellStocks.add(stockToSell);
 		portfolio.stocksSell(currentDay,vectorSellStocks);
-		// Achats
-		while(rsNotActives.next()){
-			int id_stock=rsNotActives.getInt("id_stock");
-			vectorPurchaseStocks.add(new Stock(currentDay,id_stock,0,perfStockForPurchase(currentDay,id_stock)));
-		}
+//		choix pour achats
+		 Vector<Stock> vectorPurchaseStocks = portfolio.getVectorNotActiveStocks(currentDay);
+		 itr=vectorPurchaseStocks.iterator();
+			 while(itr.hasNext()){
+				 Stock s =itr.next();
+				 s.perf=perfStockForPurchase(currentDay,s.id_stock);		 
+			 }
 		Collections.sort(vectorPurchaseStocks);
 		Stock stockToPurchase=vectorPurchaseStocks.firstElement();
 		stockToPurchase.quantity=9999;
 		vectorPurchaseStocks.clear();
 		vectorPurchaseStocks.add(stockToPurchase);
 		portfolio.stocksPurchase(currentDay,vectorPurchaseStocks);
+//		impression
 		portfolio.printPortfolio(currentDay);
 		System.out.println("");
 	}
 
-	double perfStockForSell(Date currentDay, int id_stock) throws SQLException {	
-		return rd.nextDouble();
-	}
+	public abstract double perfStockForSell(Date currentDay, int id_stock) throws SQLException;// throws SQLException {	
 
-	double perfStockForPurchase(Date currentDay, int id_stock) throws SQLException {
-		return rd.nextDouble();
-	}
+	public abstract double perfStockForPurchase(Date currentDay, int id_stock) throws SQLException;// throws SQLException {
 
 	public void setPortfolio(Portfolio portefeuille) {
 		this.portfolio = portefeuille;

@@ -43,7 +43,7 @@ public class Portfolio {
 		}else{
 			System.out.println("no connexion to database Portlfolio !!!");
 		}
-		restartGenerationDetails(name);
+		generationHistoricDetails(name);
 	}
 
 	public Portfolio(String name, Politic politic, String creation, String fin, double cash, double commissionPourcent) throws SQLException, IOException {
@@ -63,7 +63,7 @@ public class Portfolio {
 		id_portfolio = creationPortfolio(name);
 		insertMovement(dCreation, cash,OP_INVESTMENT, "Initial investment");
 		politic.initPortfolio(cash,dCreation); // stocks, first loading
-		generationHistoricMovements(dCreation); 
+		generationHistoricMovements(); 
 //		generationHistoricDetails(dCreation);
 	}
 
@@ -200,8 +200,8 @@ public class Portfolio {
 		return amont.multiply(tx);
 	}
 
-	void generationHistoricMovements(Date startingDay) throws SQLException, IOException {
-		Date currentDay = getDateAfter(startingDay);
+	void generationHistoricMovements() throws SQLException, IOException {
+		Date currentDay = getDateAfter(dCreation);
 		while(! currentDay.after(dFin)){
 			ResultSet rs = getActiveStocks(currentDay);
 			// chargement des dividends
@@ -213,13 +213,13 @@ public class Portfolio {
 		}
 		String req = String.format("update portfolios set status=true,creation='%s',fin='%s'"
 				+ " where id = %s",dCreation,dFin,id_portfolio);
-		  System.out.println(req);
+//		  System.out.println(req);
 		Statement stmt = conn.createStatement();
 		stmt.executeUpdate(req);
 
 	}
 	
-	public void restartGenerationDetails(String name)throws SQLException {
+	public void generationHistoricDetails(String name)throws SQLException {
 		Statement stmt = Portfolio.conn.createStatement();
 		String req = String.format("select * from portfolios where name = '%s'",name.trim());
 		ResultSet rs = stmt.executeQuery(req);
@@ -240,13 +240,13 @@ public class Portfolio {
 		Calendar cal = Calendar.getInstance();
 		System.out.println( "Démarrage génération des détails de " + name + " debut " + dCreation + " fin " + dFin +
 				" à " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()) );
-		generationHistoricDetails();
+		startHistoricDetails();
 		cal = Calendar.getInstance();
 		System.out.println("Fin de la génération à  " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()));
 		
 	}
 
-	void generationHistoricDetails() throws SQLException {
+	private void startHistoricDetails() throws SQLException {
 		Date currentDay = dCreation;
 		ResultSet rs;
 		Statement stm = Portfolio.conn.createStatement();
@@ -267,7 +267,7 @@ public class Portfolio {
 			
 			//	Le rendement du mois
 			if(currentDay.getDate() == 1 && currentDay.compareTo(dCreation) != 0){
-				req = String.format("INSERT INTO rendements (id_portfolio,date,rend_annuel,total) "+
+				req = String.format("INSERT INTO rendementsDetails (id_portfolio,date,rend_annuel,total) "+
 						"VALUES ('%s','%s',100*(power((select (sum(total)/(select sum(amount) from movements "+
 						"where type = 0 and date < '%s')) from details where date = '%s'),"
 						+ "365./(select '%s'::date - '%s'::date))-1.),(select sum(total) from details where date = '%s'))",
@@ -331,6 +331,17 @@ public class Portfolio {
 		return stmt.executeQuery(req);
 
 	}
+	
+	public  Vector<Stock> getVectorActiveStocks(Date day) throws SQLException {
+		Vector<Stock> vectorActiveStocks = new Vector<Stock>();
+		ResultSet rsActives = getActiveStocks(day);
+		while(rsActives.next()){
+			int id_stock=rsActives.getInt("id_stock");
+			vectorActiveStocks.add(new Stock(day,id_stock,0));
+		}
+		return vectorActiveStocks;
+	}
+	
 
 	public ResultSet getNotActiveStocks(Date day) throws SQLException {
 		Statement stmt = conn.createStatement();
@@ -341,6 +352,16 @@ public class Portfolio {
 				day,id_portfolio,OP_STOCK_IN,OP_STOCK_OUT, day);
 		//	System.out.println(req);
 		return stmt.executeQuery(req);
+	}
+
+	public  Vector<Stock> getVectorNotActiveStocks(Date day) throws SQLException {
+		Vector<Stock> vectorNotActiveStocks = new Vector<Stock>();
+		ResultSet rsActives = getNotActiveStocks(day);
+		while(rsActives.next()){
+			int id_stock=rsActives.getInt("id_stock");
+			vectorNotActiveStocks.add(new Stock(day,id_stock,0));
+		}
+		return vectorNotActiveStocks;
 	}
 
 	void dividendsInMovement(Date currentDate,int id_stock) throws SQLException {
@@ -447,8 +468,17 @@ public class Portfolio {
 				System.out.println();
 			}	
 		}
-		System.out.print("Total Portefeuille " + sAmount + " cash " + getCash(date));
-		if(date.after(dCreation))System.out.print(" rendement " + portfolioRendement(date));
+		BigDecimal cash = getCash(date);
+		System.out.print("Total Portefeuille " + sAmount + " cash " + cash);
+		if(date.after(dCreation)){
+			double rendement = portfolioRendement(date);
+			System.out.print(" rendement " + portfolioRendement(date));
+			req = String.format("INSERT INTO rendementsmovements (id_portfolio,date,vstocks,cash,vportfolio,rendement,name) "
+					+ "values (%s,'%s',%s,%s,%s,%s,'%s')",
+					id_portfolio, date,sAmount,cash,sAmount.add(cash),rendement,name);
+			stmt = Portfolio.conn.createStatement();
+			stmt.executeUpdate(req);
+		}
 		System.out.println("%");
 	}
 

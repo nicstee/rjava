@@ -7,4 +7,6 @@ public interface Politic {
 	public void setPortfolio(Portfolio portfolio);
 	public void initPortfolio(java.math.BigDecimal amount, Date creation) throws SQLException, IOException;
 	public void arbitrationStocks(Portfolio portfolio, Date currentDay) throws SQLException, IOException;
+	public double perfStockForSell(Date currentDay, int id_stock) throws SQLException;
+	public double perfStockForPurchase(Date currentDay, int id_stock) throws SQLException;
 }
