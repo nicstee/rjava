@@ -123,17 +123,18 @@ public abstract class PoliticBase implements Politic{
 				vectorSellStocks.add(s);
 			}
 		}
-		if(vectorSellStocks.isEmpty())return;
-		try{
-		Collections.sort(vectorSellStocks);
-		}catch(Exception e ){
-			portfolio.printVectorStocks("???",currentDay, vectorSellStocks);
-			System.exit(9);
+		if(! vectorSellStocks.isEmpty()){
+			try{
+				Collections.sort(vectorSellStocks);
+			}catch(Exception e ){
+				portfolio.printVectorStocks("???",currentDay, vectorSellStocks);
+				System.exit(9);
+			}
+			Stock stockToSellHigh=vectorSellStocks.firstElement();
+			vectorSellStocks.clear();
+			vectorSellStocks.add(stockToSellHigh);
+			vectorActiveStocks.remove(stockToSellHigh);
 		}
-		Stock stockToSellHigh=vectorSellStocks.firstElement();
-		vectorSellStocks.clear();
-		vectorSellStocks.add(stockToSellHigh);
-		vectorActiveStocks.remove(stockToSellHigh);
 		if(stockTooBig != null){
 			stockTooBig.quantity=stockTooBig.quantity/2;
 			vectorSellStocks.add(stockTooBig);
@@ -143,6 +144,7 @@ public abstract class PoliticBase implements Politic{
 			vectorSellStocks.add(stockTooSmall);
 			vectorActiveStocks.remove(stockTooSmall);
 		}
+		if(vectorSellStocks.isEmpty())return;		
 		portfolio.stocksSell(currentDay,vectorSellStocks);
 		//		choix pour achats
 		itr=vectorNotActiveStocks.iterator();
