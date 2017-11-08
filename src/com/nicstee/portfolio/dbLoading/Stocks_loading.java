@@ -19,7 +19,7 @@ public class Stocks_loading {
             System.out.println("Connected to database Portefeuille");
         }else System.exit(999);
         
-        String csvFile = "C:/Users/claude/Desktop/R folder/downloads/cac40-2.csv";
+        String csvFile = "C:/Users/claude/Desktop/R folder/downloads/aex.csv";
         BufferedReader br = null;
         String line = "";
         String cvsSplitBy = ";";

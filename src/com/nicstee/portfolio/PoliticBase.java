@@ -9,25 +9,31 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Random;
+import java.util.Iterator;
 import java.util.Vector;
+
+
+
 
 public abstract class PoliticBase implements Politic{
 
-	Portfolio portfolio;
-	int arbitrationDay;
-	int maxStocks;
-	int firstArbitrationMonth;
-	Date endArbitration;
-	Random rd;
+	public int minimumInPortfolio = 0; // en mois
+	public int arbitrationDay = 3;
+	public int maxStocks = 12;
+	public int firstArbitrationMonth = 3;
+	public Date endArbitration = Date.valueOf("2017-09-15");
+	public int arbitrationCycle = 1;
+	public int perfPeriodForPurchase = 30; // en jours
 
-	public PoliticBase(long seed,int maxStocks, int nbMonthToStartArbitration, int monthDayForArbitration) {
-		this.maxStocks = maxStocks;
-		this.firstArbitrationMonth = nbMonthToStartArbitration;
-		this.arbitrationDay = monthDayForArbitration;
-		rd = new Random();
-		rd.setSeed(seed);
-	}
+	public Vector <Stock> vectorActiveStocks;
+	public Vector <Stock> vectorSellStocks;
+	public Vector <Stock> vectorNotActiveStocks;
+	public Vector <Stock> vectorPurchaseStocks;
+
+	Portfolio portfolio;
+
+	BigDecimal maxValueStock;
+	BigDecimal minValueStock;
 
 	public void initPortfolio(BigDecimal cash, Date creation) throws SQLException, IOException{
 		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
@@ -41,11 +47,14 @@ public abstract class PoliticBase implements Politic{
 		ResultSet rs = stmt.executeQuery(req);
 		while (rs.next()) {
 			int id_stock = rs.getInt("id");
-			Stock s = new Stock(creation,id_stock,0);
-			s.perf = perfStockForPurchase(creation,id_stock);
+			Stock s = new Stock(creation,id_stock);
+			s.perf = perfStockForPurchase(creation, portfolio.id_portfolio, s);
+			//			savePerformance(creation,"P",id_stock,s.perf);
 			vectorPurchaseStocks.add(s);
 		}
 		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
+		maxValueStock = inv_by_stock.multiply(BigDecimal.valueOf(2.));
+		minValueStock = inv_by_stock.multiply(BigDecimal.valueOf(.66));
 		Collections.sort(vectorPurchaseStocks);
 		//		System.out.print("D " + creation +" Ac. achetés ");
 		int countNbStocks = 0;
@@ -65,49 +74,137 @@ public abstract class PoliticBase implements Politic{
 		int dim = vectorPurchaseStocks.size();	
 		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(countNbStocks-1);
 		portfolio.stocksPurchase(creation,vectorPurchaseStocks);
-		portfolio.printPortfolio(creation);
 		return;
 	}
 
-	public void arbitrationStocks(Portfolio portfolio, Date currentDay) throws SQLException, IOException{
-		if(currentDay.before(endArbitration))return;
-		if(currentDay.getDate() != arbitrationDay)return;
-		Vector<Stock> vectorSellStocks = portfolio.getVectorActiveStocks(currentDay);
-		java.util.Iterator<Stock> itr = vectorSellStocks.iterator();
-		 while(itr.hasNext()){
-			 Stock s =itr.next();
-			 s.perf=perfStockForSell(currentDay,s.id_stock);		 
-		 }
-		Collections.sort(vectorSellStocks);
-		Stock stockToSell=vectorSellStocks.firstElement();
-		stockToSell.quantity=9999;
-		vectorSellStocks.clear();
-		vectorSellStocks.add(stockToSell);
-		portfolio.stocksSell(currentDay,vectorSellStocks);
-//		choix pour achats
-		 Vector<Stock> vectorPurchaseStocks = portfolio.getVectorNotActiveStocks(currentDay);
-		 itr=vectorPurchaseStocks.iterator();
-			 while(itr.hasNext()){
-				 Stock s =itr.next();
-				 s.perf=perfStockForPurchase(currentDay,s.id_stock);		 
-			 }
-		Collections.sort(vectorPurchaseStocks);
-		Stock stockToPurchase=vectorPurchaseStocks.firstElement();
-		stockToPurchase.quantity=9999;
-		vectorPurchaseStocks.clear();
-		vectorPurchaseStocks.add(stockToPurchase);
-		portfolio.stocksPurchase(currentDay,vectorPurchaseStocks);
-//		impression
-		portfolio.printPortfolio(currentDay);
-		System.out.println("");
+	@SuppressWarnings("deprecation")
+	public Vector<Stock> arbitrationStocks(Date currentDay) throws SQLException, IOException{
+		if(currentDay.before(endArbitration))return null;
+		if(currentDay.getDate() != arbitrationDay)return null;
+		if(currentDay.getMonth()%arbitrationCycle != 0)return null;
+		vectorActiveStocks = portfolio.getVectorActiveStocks(currentDay); // sort by amount
+		vectorNotActiveStocks = portfolio.getVectorNotActiveStocks(currentDay);
+		arbitration(currentDay);
+		return vectorActiveStocks;
 	}
 
-	public abstract double perfStockForSell(Date currentDay, int id_stock) throws SQLException;// throws SQLException {	
+	private void arbitration(Date currentDay) throws SQLException, IOException{
+		BigDecimal valueStocks = BigDecimal.valueOf(0.);
+		Iterator<Stock> itr = vectorActiveStocks.iterator();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			s.sortBy=1;
+			valueStocks=valueStocks.add(s.amount);
+		}
+		maxValueStock = valueStocks.multiply(BigDecimal.valueOf(0.1));
+		Collections.sort(vectorActiveStocks); // sort sur amount 
+		Stock stockTooBig = vectorActiveStocks.lastElement();
+		if(stockTooBig.amount.compareTo(maxValueStock) > 0)
+			vectorActiveStocks.remove(stockTooBig);
+		else stockTooBig = null;
+		
+		itr = vectorActiveStocks.iterator();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			s.sortBy=0;// pour sort sur perf
+			s.perf=(s.amount.divide(s.amountPurchase,2,RoundingMode.HALF_DOWN)).floatValue();
+		}
+		Collections.sort(vectorActiveStocks); // sort sur amount 
+		Stock stockTooSmall = vectorActiveStocks.firstElement();
+		if(stockTooSmall.perf < 0.66)
+			vectorActiveStocks.remove(stockTooSmall);
+		else stockTooSmall=null;
+		itr = vectorActiveStocks.iterator();
+		vectorSellStocks = new Vector<Stock>();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			if(s.since >= this.minimumInPortfolio){
+				s.perf=perfStockForSell(currentDay, portfolio.id_portfolio,s);
+				vectorSellStocks.add(s);
+			}
+		}
+		if(vectorSellStocks.isEmpty())return;
+		try{
+		Collections.sort(vectorSellStocks);
+		}catch(Exception e ){
+			portfolio.printVectorStocks("???",currentDay, vectorSellStocks);
+			System.exit(9);
+		}
+		Stock stockToSellHigh=vectorSellStocks.firstElement();
+		vectorSellStocks.clear();
+		vectorSellStocks.add(stockToSellHigh);
+		vectorActiveStocks.remove(stockToSellHigh);
+		if(stockTooBig != null){
+			stockTooBig.quantity=stockTooBig.quantity/2;
+			vectorSellStocks.add(stockTooBig);
+		}
+		if(stockTooSmall != null){
+			stockTooSmall.quantity=99999;
+			vectorSellStocks.add(stockTooSmall);
+			vectorActiveStocks.remove(stockTooSmall);
+		}
+		portfolio.stocksSell(currentDay,vectorSellStocks);
+		//		choix pour achats
+		itr=vectorNotActiveStocks.iterator();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			s.sortBy=0; // pour sort sur perf
+			s.perf=perfStockForPurchase(currentDay, portfolio.id_portfolio,s);
+		}
+		Collections.sort(vectorNotActiveStocks); // moins perfo.
+		itr = vectorNotActiveStocks.iterator();
+		//		A FAIRE  APRES LES VENTES SINON PAS DE CASH
+		int nbToPurchase = vectorSellStocks.size();
+		BigDecimal inv_by_stock = portfolio.getCash(currentDay).divide(new BigDecimal(nbToPurchase),2,RoundingMode.HALF_DOWN);
+		vectorPurchaseStocks = new Vector<Stock>();
+		while(itr.hasNext()){
+			Stock s = itr.next();
+			s.quantity = inv_by_stock.divide(s.quoteEur,2,RoundingMode.HALF_DOWN).intValue();
+			vectorPurchaseStocks.add(s);
+			vectorActiveStocks.add(s);	
+			nbToPurchase=nbToPurchase-1;
+			if(nbToPurchase==0)break;
+		}
+		portfolio.stocksPurchase(currentDay,vectorPurchaseStocks);
+	}
 
-	public abstract double perfStockForPurchase(Date currentDay, int id_stock) throws SQLException;// throws SQLException {
+	public abstract double perfStockForSell(Date currentDay, int portfolio, Stock s) throws SQLException;// throws SQLException {	
+
+	public abstract double perfStockForPurchase(Date currentDay, int portfolio, Stock s) throws SQLException;// throws SQLException {
+
 
 	public void setPortfolio(Portfolio portefeuille) {
 		this.portfolio = portefeuille;
+	}
+
+	public void setMinimumInPortfolio(int minimumInPortfolio) {
+		if(this.minimumInPortfolio <= firstArbitrationMonth)
+			this.minimumInPortfolio = minimumInPortfolio;
+		else this.minimumInPortfolio =this.firstArbitrationMonth;
+	}
+
+	public void setArbitrationDay(int arbitrationDay) {
+		this.arbitrationDay = arbitrationDay;
+	}
+
+	public void setMaxStocks(int maxStocks) {
+		this.maxStocks = maxStocks;
+	}
+
+	public void setFirstArbitrationMonth(int firstArbitrationMonth) {
+		this.firstArbitrationMonth = firstArbitrationMonth;
+	}
+
+	public void setEndArbitration(Date endArbitration) {
+		this.endArbitration = endArbitration;
+	}
+
+	public void setArbitrationCycle(int arbitrationCycle){
+		this.arbitrationCycle = arbitrationCycle;
+	}
+
+	public void setPerfPeriodForPurchase( int perfPeriodForPurchase){
+		this.perfPeriodForPurchase = perfPeriodForPurchase;
 	}
 
 }

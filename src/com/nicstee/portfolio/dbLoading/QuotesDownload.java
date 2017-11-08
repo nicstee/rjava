@@ -30,15 +30,15 @@ import java.sql.Statement;
 	                System.out.println("Connected to database Portefeuille");
 	            }
 	            ResultSet resultats = null;
-	            String requete = "SELECT * FROM stocks";
+	            String requete = "SELECT * FROM stocks where actived is true";
 	            Statement stmt = conn.createStatement();
 	            resultats = stmt.executeQuery(requete);
 	            GetYahooQuotes c = new GetYahooQuotes();
 	            while (resultats.next()) {
-	            	int id_stock = resultats.getInt(1);
-	            	String symbol = resultats.getString(2).trim();
-	            	int quotes_status = resultats.getInt(4);
-	            	int dividends_status = resultats.getInt(5);
+	            	int id_stock = resultats.getInt("id");
+	            	String symbol = resultats.getString("code").trim();
+	            	int quotes_status = resultats.getInt("quotes_status");
+	            	int dividends_status = resultats.getInt("dividends_status");
 		            if(quotes_status != 0)continue;
 		            Statement stmt0 = conn.createStatement();
 		            stmt0.executeUpdate(String.format("delete from quotes where id_stock = %s",id_stock));		          

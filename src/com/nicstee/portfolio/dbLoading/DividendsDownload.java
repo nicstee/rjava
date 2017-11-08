@@ -30,7 +30,7 @@ import java.sql.Statement;
 	                System.out.println("Connected to database Portefeuille");
 	            }
 	            ResultSet resultats = null;
-	            String requete = "SELECT * FROM stocks";
+	            String requete = "SELECT * FROM stocks where actived is true";
 	            Statement stmt = conn.createStatement();
 	            resultats = stmt.executeQuery(requete);
 	            GetYahooQuotes c = new GetYahooQuotes();
