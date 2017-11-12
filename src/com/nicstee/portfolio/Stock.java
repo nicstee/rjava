@@ -22,6 +22,7 @@ public class Stock implements Comparable<Stock>
 	public String currency;
 	public int since = 0; // en mois
 	public int sortBy = 0; // 0 -> perf ; 1 -> amount;
+	public String pays;
 	
 	public Stock(Date date, int id_stock) throws SQLException
 	{
@@ -37,6 +38,7 @@ public class Stock implements Comparable<Stock>
 	    	  this.quoteEur=rs.getBigDecimal("quoteEur");
 	    	  this.currency=rs.getString("currency").trim();
 	    	  this.date = date;
+	    	  this.pays = rs.getString("pays").trim();
  	}
 	
 	public Stock getInvertedPoint() throws SQLException

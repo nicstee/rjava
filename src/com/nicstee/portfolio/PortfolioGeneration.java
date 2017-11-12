@@ -46,19 +46,21 @@ public class PortfolioGeneration {
 					//		1er param. = la strategie
 					portfolio.setPolitic(politic);
 					//		2me param. = commission achat/vente en pourcent
-					portfolio.setCommission(0.002);
+					// nouveau ,006
+					portfolio.setCommission(0.006);
 					//		3me param. = la date d'ouverture du portefeuille
 					portfolio.setdCreation("2007-01-01");
 					//		4me param. = la date de fermeture du portefeuille
 					portfolio.setdFin("2017-09-15");
 					//		5me param. = l'investissement, nombre floating > 0
 					portfolio.setStartCash(BigDecimal.valueOf(1000000.));
+					portfolio.setBank(Portfolio.BINCKBANCK);
 					//		6ème param. = le nom du portefeuille
 					//					String name = String.format("%s;%s;%s;%s;%s;%s;%s;\"%s\";\"%s\";%s",politic.maxStocks,politic.arbitrationDay,
 					//							politic.firstArbitrationMonth,politic.minimumInPortfolio,politic.arbitrationCycle,
 					//							politic.perfPeriodForPurchase,portfolio.commission,portfolio.dCreation,portfolio.dFin,
 					//							portfolio.startCash);
-					String name = String.format("%s minimumInPortfolio = %s mois; arbitrationCycle = %s mois; perfPeriodForPurchase = %s jours",
+					String name = String.format("BINCKBANK %s minimumInPortfolio = %s mois; arbitrationCycle = %s mois; perfPeriodForPurchase = %s jours",
 							d,politic.minimumInPortfolio,politic.arbitrationCycle,politic.perfPeriodForPurchase);
 					//		7me param. de lissage 0> ,100<
 					portfolio.setName(name);

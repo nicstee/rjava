@@ -102,7 +102,6 @@ public abstract class PoliticBase implements Politic{
 		if(stockTooBig.amount.compareTo(maxValueStock) > 0)
 			vectorActiveStocks.remove(stockTooBig);
 		else stockTooBig = null;
-		
 		itr = vectorActiveStocks.iterator();
 		while(itr.hasNext()){
 			Stock s =itr.next();
@@ -154,11 +153,23 @@ public abstract class PoliticBase implements Politic{
 			s.perf=perfStockForPurchase(currentDay, portfolio.id_portfolio,s);
 		}
 		Collections.sort(vectorNotActiveStocks); // moins perfo.
-		itr = vectorNotActiveStocks.iterator();
 		//		A FAIRE  APRES LES VENTES SINON PAS DE CASH
-		int nbToPurchase = vectorSellStocks.size();
+		// Ne pas acheter pour moins de 5000 euro en cash
+		BigDecimal cash = portfolio.getCash(currentDay);
+		int nbToPurchase =vectorSellStocks.size();
+		int nbToPurchaseMax = cash.divide(BigDecimal.valueOf(5000.),0,RoundingMode.HALF_DOWN).intValue();
+//		portfolio.startCash.multiply(BigDecimal.valueOf(.005));
+		nbToPurchase = Math.min(nbToPurchaseMax,nbToPurchase);
+		if(nbToPurchase == 0){
+			System.out.println("PAS D'ACHAT !!!");
+			return;
+		}
+		if(nbToPurchaseMax < nbToPurchase){
+			System.out.println("NBRE D'ACHATS REDUIT DE " +nbToPurchaseMax+" A "+nbToPurchase);
+		}	
 		BigDecimal inv_by_stock = portfolio.getCash(currentDay).divide(new BigDecimal(nbToPurchase),2,RoundingMode.HALF_DOWN);
 		vectorPurchaseStocks = new Vector<Stock>();
+		itr = vectorNotActiveStocks.iterator();
 		while(itr.hasNext()){
 			Stock s = itr.next();
 			s.quantity = inv_by_stock.divide(s.quoteEur,2,RoundingMode.HALF_DOWN).intValue();

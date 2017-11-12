@@ -21,9 +21,11 @@ public class Portfolio {
 	static int OP_DIVIDENDS = 3;
 	static int OP_COST = 4;
 	static int OP_TAX_DIVIDENDS = 5;
+	public static int ING = 1;
+	public static int BINCKBANCK = 2;
 
 	public static Connection conn;
-
+	public int id_portfolio;
 	boolean savePerf = false;
 	boolean saveRend = false;
 	boolean printStatus = true;
@@ -31,12 +33,21 @@ public class Portfolio {
 	Date dFin;
 	double commission;
 	Politic politic;
+
 	String name ;
+	int bank;
 	BigDecimal startCash; 
-	BigDecimal lastAmount = BigDecimal.valueOf(0.);
+	BigDecimal lastAmount = BigDecimal.valueOf(0.);	
+	
+	BigDecimal trancheBinckBank[] = {new BigDecimal(2500.),new BigDecimal(5000.),
+			new BigDecimal(25000.),new BigDecimal(50000.)};
+	BigDecimal tarifBinckBank[][] = {
+			{ new BigDecimal(7.25), new BigDecimal(9.75), new BigDecimal(9.75)},
+			{ new BigDecimal(9.75), new BigDecimal(9.75),new BigDecimal(14.75)},
+			{new BigDecimal(14.75),new BigDecimal(14.75),new BigDecimal(24.75)},
+			{new BigDecimal(24.75),new BigDecimal(24.75),new BigDecimal(29.75)}
+	};
 
-
-	int id_portfolio;
 
 	public Portfolio(String name) throws SQLException{
 		String dbURL = "jdbc:postgresql:Portfolio?user=postgres&password=GLOZQCKI";
@@ -145,7 +156,8 @@ public class Portfolio {
 			sx.amount = sx.quoteEur.multiply(new BigDecimal(-sx.quantity));
 			if(sx.quantity <= 0 )return;
 		}
-		sx.cost = sx.quoteEur.multiply(new BigDecimal(sx.quantity)).divide(new BigDecimal(1/commission),2,BigDecimal.ROUND_UP).multiply(new BigDecimal(-1.));
+//		sx.cost = sx.quoteEur.multiply(new BigDecimal(sx.quantity)).divide(new BigDecimal(1/commission),2,BigDecimal.ROUND_UP).multiply(new BigDecimal(-1.));
+		sx.cost = getCost(sx);
 		String req = String.format("INSERT INTO movements (id_stock,id_portfolio,quantity,quote,date,amount,type,comment) "
 				+ "VALUES (%s,%s,%s,%s,'%s',%s,%s,'%s')",
 				id_stock,id_portfolio,sx.quantity,sx.quoteEur,date,sx.amount,Portfolio.OP_STOCK_IN,"stocks purchase cost");
@@ -170,7 +182,7 @@ public class Portfolio {
 		int currentQuantity= getQuantity(date,id_stock);
 		if(sx.quantity > getQuantity(date,id_stock))sx.quantity=currentQuantity;
 		sx.amount = sx.quoteEur.multiply(new BigDecimal(sx.quantity));
-		sx.cost = sx.quoteEur.multiply(new BigDecimal(sx.quantity)).divide(new BigDecimal(1/commission),2,BigDecimal.ROUND_UP).multiply(new BigDecimal(-1.));
+		sx.cost = getCost(sx);
 		String req = String.format("INSERT INTO movements (id_stock,id_portfolio,quantity,quote,date,amount,type,comment) "
 				+ "VALUES ('%s','%s','%s','%s','%s',%s,%s,'%s')",
 				id_stock,id_portfolio,-sx.quantity,sx.quoteEur,date,sx.amount,Portfolio.OP_STOCK_OUT,"stocks sell cost");
@@ -182,6 +194,85 @@ public class Portfolio {
 		//	    System.out.println(req);
 		stm.executeUpdate(req);
 	}
+	
+	public void setAgios(Date date) throws SQLException {
+		if(this.bank == Portfolio.BINCKBANCK)return;
+		if(this.bank == Portfolio.ING){
+			BigDecimal cost = BigDecimal.valueOf(0.);
+			double tx = -(.0015 + .0005)*1.21/12.;
+			String req = String.format("select samount from temporaire "
+				+ "where id_portfolio = %s and date < '%s' order by date desc limit 1;",
+					id_portfolio,date);
+//	       System.out.println(req);
+			Statement stmt = conn.createStatement();
+			ResultSet rs = stmt.executeQuery(req);
+			if(rs.next()){
+			 cost=rs.getBigDecimal("samount");
+//			 System.out.println("samount " + cost);
+			 cost=(cost.multiply(BigDecimal.valueOf(tx)).setScale(2,BigDecimal.ROUND_HALF_EVEN));
+			 System.out.println("samount " + cost);
+			}
+			else{
+				System.out.println("!!! Banque inconnue pour le calcul des agios/comm/frais de garde/...");
+				System.exit(999);
+			}
+			req = String.format("INSERT INTO movements (date,amount,id_portfolio,type,comment) VALUES ('%s',%s,%s,%s,'%s')",
+					date,cost,id_portfolio,Portfolio.OP_COST,"droits de gardes, agios,...");
+//				    System.out.println(req);
+			stmt.executeUpdate(req);			
+		}
+		else{
+			System.out.println("!!! Banque inconnue pour le calcul des agios/comm/frais de garde/...");
+			System.exit(999);
+		}
+		return;
+		
+	}
+
+
+	public BigDecimal getCost(Stock s) {
+		// TOB
+		BigDecimal amount = s.amount.abs();
+		BigDecimal commission = new BigDecimal(0.);
+		if(s.pays.compareTo("BE") == 0)
+			commission=amount.multiply(BigDecimal.valueOf(.0009)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+		else
+			commission=amount.multiply(BigDecimal.valueOf(.0035)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+		// frais bancaire
+		if(this.bank == Portfolio.ING)commission=commission.add(getCommissionIng(s));
+		else if(this.bank == Portfolio.BINCKBANCK)commission=commission.add(getCommissionBinckBank(s));
+		else{
+			System.out.println("!!! Banque inconnue pour le calcul des frais d'achat/vente");
+			System.exit(999);
+		}
+		return commission.multiply(BigDecimal.valueOf(-1.));
+	}
+
+	private BigDecimal getCommissionIng(Stock s) {
+		return s.amount.abs().multiply(BigDecimal.valueOf(.0025)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+	}
+	
+	private BigDecimal getCommissionBinckBank(Stock s) {
+		int i = 0;
+		while(i<4){
+			if((s.amount.abs()).compareTo(trancheBinckBank[i]) <= 0)break;
+			else i++;
+		}
+		int j = 0;
+		String p=s.pays.trim();
+		if(p.compareTo("BE") == 0)j=0;
+		else if(p.compareTo("FR") == 0 || p.compareTo("NL") == 0 || p.compareTo("DE") == 0 )j=1;
+		else if(p.compareTo("US") == 0 )j=2;
+		else {
+			System.out.println("pays " + p + " sans tarification de commission de vente/achat");
+			System.exit(999);
+		};
+		if(i==4){
+		return tarifBinckBank[3][j].multiply((s.amount.abs().divide(BigDecimal.valueOf(50000.)).setScale(0,BigDecimal.ROUND_DOWN)));
+		}
+		return tarifBinckBank[i][j];
+	}
+
 
 	public void stocksSell(Date date,Vector<Stock> vectorSellStocks) throws SQLException, IOException{
 		for(Stock s : vectorSellStocks){
@@ -214,6 +305,7 @@ public class Portfolio {
 	void generationHistoricMovements() throws SQLException, IOException {
 		Date currentDay = getDateAfter(dCreation);
 		while(! currentDay.after(dFin)){
+			if(currentDay.getDate() == 1)setAgios(currentDay);
 			ResultSet rs = getActiveStocks(currentDay);
 			// chargement des dividends
 			if(this.savePerf)this.savePerformance(currentDay);
@@ -632,4 +724,9 @@ public class Portfolio {
 		this.startCash = startCash;
 		this.lastAmount = startCash;
 	}
+	
+	public void setBank(int bank) {
+		this.bank = bank;
+	}
+	
 }

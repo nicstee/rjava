@@ -20,17 +20,19 @@ public class PortfolioGenerationRandom {
 		politic.setArbitrationDay(3);
 		politic.setFirstArbitrationMonth(3);
 //		politic.setMinimumInPortfolio(0);
-		politic.setMinimumInPortfolio(570);
+		politic.setMinimumInPortfolio(3);
 		// ------------------------------------------------------------
 		Portfolio portfolio = new Portfolio();
-		for(int i = 0;i<12;i++){
+		for(int i = 8;i<12;i++){
 			politic.setSeed(seed);
 			portfolio.setPolitic(politic);
-			portfolio.setCommission(0.002);
+			// nouveau .006
+			portfolio.setCommission(0.006);
 			portfolio.setdCreation("2007-01-01");
 			portfolio.setdFin("2017-09-15");
 			portfolio.setStartCash(BigDecimal.valueOf(1000000.));
-			portfolio.setName(String.format("%s essaie n° %s",d,i));
+			portfolio.setBank(Portfolio.BINCKBANCK);
+			portfolio.setName(String.format("%s BINCKBANK RANDOM n° %s min. en port. %s mois",d,i,politic.minimumInPortfolio));
 			// START
 			System.out.println("Start "+portfolio.name);
 			portfolio.generationPortfolio();
