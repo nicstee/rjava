@@ -31,7 +31,7 @@ public class Portfolio {
 	boolean printStatus = true;
 	Date dCreation;
 	Date dFin;
-	double commission;
+//	double commission;
 	Politic politic;
 
 	String name ;
@@ -64,7 +64,7 @@ public class Portfolio {
 	public Portfolio(String name, Politic politic, String creation, String fin, double cash, double commissionPourcent) throws SQLException, IOException {
 		this.politic=politic;
 		this.politic.setPortfolio(this);
-		this.commission=commissionPourcent/100.;
+//		this.commission=commissionPourcent/100.;
 		this.name=name;
 		dCreation = Date.valueOf(creation);
 		dCreation.setDate(1); // begin of month
@@ -156,12 +156,12 @@ public class Portfolio {
 			sx.amount = sx.quoteEur.multiply(new BigDecimal(-sx.quantity));
 			if(sx.quantity <= 0 )return;
 		}
-//		sx.cost = sx.quoteEur.multiply(new BigDecimal(sx.quantity)).divide(new BigDecimal(1/commission),2,BigDecimal.ROUND_UP).multiply(new BigDecimal(-1.));
 		sx.cost = getCost(sx);
 		String req = String.format("INSERT INTO movements (id_stock,id_portfolio,quantity,quote,date,amount,type,comment) "
 				+ "VALUES (%s,%s,%s,%s,'%s',%s,%s,'%s')",
 				id_stock,id_portfolio,sx.quantity,sx.quoteEur,date,sx.amount,Portfolio.OP_STOCK_IN,"stocks purchase cost");
 		//	    System.out.println(req);
+		sx.amount=sx.amount.multiply(BigDecimal.valueOf(-1.));
 		Statement stm = Portfolio.conn.createStatement();
 		stm.executeUpdate(req);	
 		req = String.format("INSERT INTO movements (date,amount,id_portfolio,type,comment,id_stock) VALUES ('%s',%s,%s,%s,'%s',%s)",
@@ -208,9 +208,8 @@ public class Portfolio {
 			ResultSet rs = stmt.executeQuery(req);
 			if(rs.next()){
 			 cost=rs.getBigDecimal("samount");
-//			 System.out.println("samount " + cost);
 			 cost=(cost.multiply(BigDecimal.valueOf(tx)).setScale(2,BigDecimal.ROUND_HALF_EVEN));
-			 System.out.println("samount " + cost);
+//			 System.out.println("samount " + cost);
 			}
 			else{
 				System.out.println("!!! Banque inconnue pour le calcul des agios/comm/frais de garde/...");
@@ -348,8 +347,8 @@ public class Portfolio {
 		System.out.println(" valeur précédente " + lastAmount + " " +perfSem );
 		String req = String.format(
 				"INSERT INTO temporaire (id_portfolio,date,samount,lastamount,perfSem) "
-				+ "VALUES (%s,'%s',%s,%s,%s)",//,%s,%s)",
-				id_portfolio,currentDay,sAmount,lastAmount,perfSem);//,lissageAmount,perfLiss);
+				+ "VALUES (%s,'%s',%s,%s,%s)",
+				id_portfolio,currentDay,sAmount,lastAmount,perfSem);
 		//	    System.out.println(req);
 		Statement stm = Portfolio.conn.createStatement();
 		stm.executeUpdate(req);	
@@ -483,6 +482,7 @@ public class Portfolio {
 			s.amount=BigDecimal.valueOf(s.quantity).multiply(s.quoteEur);
 			s.quotePurchEur=getQuotePurch(day,id_stock);
 			s.amountPurchase=BigDecimal.valueOf(s.quantity).multiply(s.quotePurchEur);
+			s.perf=(s.amount.divide(s.amountPurchase, 4, BigDecimal.ROUND_HALF_EVEN)).doubleValue();
 			vectorActiveStocks.add(s);
 		}
 		return vectorActiveStocks;
@@ -604,14 +604,18 @@ public class Portfolio {
 			System.out.print(", depuis " + s.since);
 			System.out.print(" mois, qty " + s.quantity);
 			System.out.print(", cot " + s.quoteEur);
-			BigDecimal amount = s.quoteEur.multiply(BigDecimal.valueOf(s.quantity));
-			sAmount = sAmount.add(amount);
-			System.out.print(", mt " + amount);
-			System.out.println();	
+			sAmount = sAmount.add(s.amount);
+			System.out.print(", mt " + s.amount);
+			if(s.since > 0){
+				BigDecimal diff = s.amount.subtract(s.amountPurchase);
+				System.out.print(" gain ou perte " + diff +" " +
+					diff.multiply(BigDecimal.valueOf(100.)).divide(s.amountPurchase, 4, BigDecimal.ROUND_HALF_EVEN)+"%");
+			}
+			System.out.println();
 		}
 		BigDecimal cash = getCash(date);
 		double rendement = portfolioRendement(date);
-		System.out.print("Total Portefeuille " + sAmount + " cash " + cash);
+		System.out.print("Total Portefeuille " + sAmount + " cash " + cash + " Total " + sAmount.add(cash));
 		if(date.after(dCreation)){
 			System.out.println(" rend. " + rendement +"%");
 			if(saveRend){
@@ -658,19 +662,20 @@ public class Portfolio {
 		BigDecimal sum = new BigDecimal(0.);
 		while(rs.next())sum = sum.add(rs.getBigDecimal("amount"));
 		req = String.format(
-				"select sum(amount) as amount from movements where id_portfolio = %s and date <= '%s'"
-						+ " and type in (3,4,5)",id_portfolio,date);
+				"select sum(amount) as cash from movements where id_portfolio = %s and date <= '%s'"
+						/*+ " and type in (3,4,5)"*/,id_portfolio,date);
 		stmt = conn.createStatement();
 		rs = stmt.executeQuery(req);
-		if(rs.next())sum.add(rs.getBigDecimal("amount"));
+		rs.next();
+		sum=sum.add(rs.getBigDecimal("cash"));
 		req = String.format(
-				"select sum(amount) as amount from movements where id_portfolio = %s and date <= '%s'"
+				"select sum(amount) as invest from movements where id_portfolio = %s and date <= '%s'"
 						+ " and type = 0",id_portfolio,date);
 		//				System.out.println(req);
 		stmt = conn.createStatement();
 		rs = stmt.executeQuery(req);
-		if(!rs.next())return 0.;
-		double rendement =(sum.divide(rs.getBigDecimal("amount"),6,BigDecimal.ROUND_HALF_EVEN)).floatValue();
+		rs.next();
+		double rendement =(sum.divide(rs.getBigDecimal("invest"),6,BigDecimal.ROUND_HALF_EVEN)).floatValue();
 		return Math.round((Math.pow(rendement,365./getNberDaysBetween(dCreation, date))-1.)*10000.)/100.;
 	}
 
@@ -707,9 +712,9 @@ public class Portfolio {
 		this.dFin = Date.valueOf(dFin);
 	}
 
-	public void setCommission(double commission) {
-		this.commission = commission;
-	}
+//	public void setCommission(double commission) {
+//		this.commission = commission;
+//	}
 
 	public void setPolitic(Politic politic) {
 		this.politic = politic;

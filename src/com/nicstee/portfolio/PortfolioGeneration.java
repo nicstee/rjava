@@ -23,14 +23,14 @@ public class PortfolioGeneration {
 			for(int j = i; j<3;j++){// minimum en portefeuille >= cycle d'arbitrage
 				for(int k = 0;k<3;k++){ // recule pour analyse du max de décroissance
 // ?????????????????????????????????????????????????????????????????????????????????????????????????????????
-//					if(i == 0 && j== 0 && k == 0)continue;
+//					if(i == 0 && j== 0 && k < 2)continue;
 // ?????????????????????????????????????????????????????????????????????????????????????????????????????????
 					//-------------------------------------------------------------
 					PoliticMiniMax politic = new PoliticMiniMax();
 					//		1er param. = nbre pour le random
 					//		politic.setSeed(10);
 					//		2me param. = le nombre max. d'actions en portefeuille
-					politic.setMaxStocks(20);
+					politic.setMaxStocks(12);
 					//		3me param. = le jour du mois d'arbitrage
 					politic.setArbitrationDay(3);
 					//		4me param. = nbre de mois pour commencer les arbitrages
@@ -47,7 +47,7 @@ public class PortfolioGeneration {
 					portfolio.setPolitic(politic);
 					//		2me param. = commission achat/vente en pourcent
 					// nouveau ,006
-					portfolio.setCommission(0.006);
+//					portfolio.setCommission(0.006);
 					//		3me param. = la date d'ouverture du portefeuille
 					portfolio.setdCreation("2007-01-01");
 					//		4me param. = la date de fermeture du portefeuille
@@ -60,12 +60,13 @@ public class PortfolioGeneration {
 					//							politic.firstArbitrationMonth,politic.minimumInPortfolio,politic.arbitrationCycle,
 					//							politic.perfPeriodForPurchase,portfolio.commission,portfolio.dCreation,portfolio.dFin,
 					//							portfolio.startCash);
-					String name = String.format("BINCKBANK %s minimumInPortfolio = %s mois; arbitrationCycle = %s mois; perfPeriodForPurchase = %s jours",
-							d,politic.minimumInPortfolio,politic.arbitrationCycle,politic.perfPeriodForPurchase);
+					String name = String.format("TEST(%sa) %s minimumInPortfolio = %s mois; arbitrationCycle = %s mois; perfPeriodForPurchase = %s jours",
+							politic.maxStocks,d,politic.minimumInPortfolio,politic.arbitrationCycle,politic.perfPeriodForPurchase);
 					//		7me param. de lissage 0> ,100<
 					portfolio.setName(name);
 					//---------------------------------------------------------------
 					System.out.println("*** Paramètres ***");
+					System.out.println("nb. actions = "+politic.maxStocks);
 					System.out.println("minimumInPortfolio = "+politic.minimumInPortfolio);
 					System.out.println("arbitrationCycle = "+politic.arbitrationCycle);
 					System.out.println("perfPeriodForPurchase = "+politic.perfPeriodForPurchase+"\n");

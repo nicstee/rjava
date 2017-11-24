@@ -28,5 +28,10 @@ public class PoliticRandom extends PoliticBase implements Politic{
 		//		System.out.println("id_stock " + id_stock + " perf " + perf);
 		return perf;
 	}
+	
+	public double perfStockForPurchaseInit(Date currentDay, int portfolio, Stock s) throws SQLException {
+		return perfStockForPurchase(currentDay,portfolio,s);
+	}
+
 
 }
