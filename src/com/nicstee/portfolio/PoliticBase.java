@@ -27,6 +27,7 @@ public abstract class PoliticBase implements Politic{
 	public int perfPeriodForPurchase = 30; // en jours
 	public double sellThreshold = .66;
 	public double purchaseThreshold = .95;
+	public int maxMonth = 12;
 
 	public Vector <Stock> vectorActiveStocks;
 	public Vector <Stock> vectorSellStocks;
@@ -39,11 +40,10 @@ public abstract class PoliticBase implements Politic{
 //	BigDecimal minValueStock;
 
 	public void initPortfolio(BigDecimal cash, Date creation) throws SQLException, IOException{
+
+		BigDecimal inv_by_stock=initData(cash,creation);
+//
 		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
-		Calendar c = Calendar.getInstance();
-		c.setTime(creation);
-		c.add(Calendar.MONTH, this.firstArbitrationMonth);  // number of days to add
-		endArbitration = new java.sql.Date(c.getTimeInMillis());
 		Statement stmt = Portfolio.conn.createStatement();
 		String req = String.format("SELECT id FROM stocks where actived and firstquote <= '%s' order by id",creation);
 		//        System.out.println(req);
@@ -55,15 +55,14 @@ public abstract class PoliticBase implements Politic{
 			//			savePerformance(creation,"P",id_stock,s.perf);
 			vectorPurchaseStocks.add(s);
 		}
-		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
-		maxValueStock = inv_by_stock.multiply(BigDecimal.valueOf(2.));
-//		minValueStock = inv_by_stock.multiply(BigDecimal.valueOf(sellThreshold));
+		Stock.sortBy=0;;
 		Collections.sort(vectorPurchaseStocks);
 		//		System.out.print("D " + creation +" Ac. achetés ");
 		int countNbStocks = 0;
 		for(Stock s : vectorPurchaseStocks){
 			countNbStocks=countNbStocks+1;
 			if(countNbStocks > maxStocks){
+// ???				countNbStocks=countNbStocks-1;
 				break;
 			}
 			int id_stock = s.id_stock;
@@ -76,9 +75,20 @@ public abstract class PoliticBase implements Politic{
 		System.out.println("");
 		int dim = vectorPurchaseStocks.size();	
 		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(countNbStocks-1);
+//??		for(int i = countNbStocks;i<=dim;i++)vectorPurchaseStocks.remove(i-1);
 		portfolio.stocksPurchase(creation,vectorPurchaseStocks);
 		return;
 	}
+
+	public BigDecimal initData(BigDecimal cash, Date creation) {
+		BigDecimal inv_by_stock = cash.divide(new BigDecimal(maxStocks),2,RoundingMode.HALF_DOWN);
+		maxValueStock = inv_by_stock.multiply(BigDecimal.valueOf(2.));
+		Calendar c = Calendar.getInstance();
+		c.setTime(creation);
+		c.add(Calendar.MONTH, this.firstArbitrationMonth);  // number of months to add
+		endArbitration = new java.sql.Date(c.getTimeInMillis());
+		return inv_by_stock;
+}
 
 	@SuppressWarnings("deprecation")
 	public Vector<Stock> arbitrationStocks(Date currentDay) throws SQLException, IOException{
@@ -100,12 +110,11 @@ public abstract class PoliticBase implements Politic{
 			Iterator<Stock> itr = vectorActiveStocks.iterator();
 			while(itr.hasNext()){
 				Stock s =itr.next();
-				saveSellPerf(currentDay,s);
-				s.sortBy=1; // pour trier sur le amount décroissant
 				valueStocks=valueStocks.add(s.amount);
 			}
 			valueStocks = valueStocks.add(cash); // valeur du pf avec cash
 			maxValueStock = valueStocks.multiply(BigDecimal.valueOf(0.1)); //10% du pf
+			Stock.sortBy = 1; // montant décroissant
 			Collections.sort(vectorActiveStocks); // sort sur amount décroissant
 			Stock stockTooBig = vectorActiveStocks.lastElement(); // action le + important
 			if(stockTooBig.amount.compareTo(maxValueStock) > 0)
@@ -115,17 +124,16 @@ public abstract class PoliticBase implements Politic{
 			int nbPossibleToSell=0;
 			while(itr.hasNext()){
 				Stock s =itr.next();
-				s.sortBy=0;// pour sort sur perf (
-				s.perf=((s.amount.divide(s.amountPurchase,2,RoundingMode.HALF_DOWN))).floatValue();
 				if(s.perf < this.sellThreshold)nbPossibleToSell=nbPossibleToSell+1;
-//				System.out.println("perf. vente de"+s.code+" "+s.perf);
 			}
 			System.out.println("Nbre possible de ventes sous le seuil de "+sellThreshold+" = "+nbPossibleToSell);
 			if(vectorActiveStocks.size() > 0){
-				Collections.sort(vectorActiveStocks); // sort sur amount
+				Stock.sortBy=0;// d'abord le - performant
+				Collections.sort(vectorActiveStocks); 
 				Stock stockTooSmall = vectorActiveStocks.firstElement();
-				if(stockTooSmall.perf < this.sellThreshold) 
+				if(stockTooSmall.perf < this.sellThreshold){ 
 					vectorActiveStocks.remove(stockTooSmall); //éjection si en dessous d'un seuil
+				}
 				else stockTooSmall=null;
 				if(vectorActiveStocks.size() > 0){
 					itr = vectorActiveStocks.iterator();
@@ -133,19 +141,16 @@ public abstract class PoliticBase implements Politic{
 					while(itr.hasNext()){
 						Stock s =itr.next();
 						if(s.since >= this.minimumInPortfolio){
-							s.sortBy=0; // pour trier sur la perf. décroissante en terme rendement annuel
 							s.perf=perfStockForSell(currentDay, portfolio.id_portfolio,s);
 							vectorSellStocks.add(s);
 						}
 					}
+					
 					if(vectorSellStocks.size() > 0){
-						try{
-							Collections.sort(vectorSellStocks);
-						}catch(Exception e ){
-							portfolio.printVectorStocks("???",currentDay, vectorSellStocks);
-							System.exit(9);
-						}
+						Stock.sortBy=2; //d'abord les + performant
+						Collections.sort(vectorSellStocks);
 						Stock stockToSellHigh=vectorSellStocks.firstElement(); // prendre le plus performant
+						stockToSellHigh.sellType = 2; // croissance + forte
 						vectorSellStocks.clear();
 						vectorSellStocks.add(stockToSellHigh);
 						vectorActiveStocks.remove(stockToSellHigh);
@@ -154,15 +159,36 @@ public abstract class PoliticBase implements Politic{
 						int qty=stockTooBig.quantity;
 						stockTooBig.quantity=stockTooBig.quantity/2;
 						vectorSellStocks.add(stockTooBig);
-						stockTooBig.quantity=qty-stockTooBig.quantity;			
+						stockTooBig.quantity=qty-stockTooBig.quantity;	
+						stockTooBig.sellType=3; // 1/2 vendu
 						vectorActiveStocks.add(stockTooBig);
 					}
 					if(stockTooSmall != null){
 						stockTooSmall.quantity=99999;
 						vectorSellStocks.add(stockTooSmall);
+						stockTooSmall.sellType=1; // + dessous du seuil
 						vectorActiveStocks.remove(stockTooSmall);
 					}
-					if(vectorSellStocks.isEmpty())return;		
+					
+					if(vectorActiveStocks.size() > 0){
+						Stock.sortBy=2; // perf achat/act. + -> -
+						Collections.sort(vectorActiveStocks);
+						itr = vectorActiveStocks.iterator();
+						while(itr.hasNext()){
+							Stock s =itr.next();
+							if(s.since < maxMonth)continue;
+							s.sellType=4;
+							vectorSellStocks.add(s);
+							vectorActiveStocks.remove(s);
+							break;			
+						}
+					}
+							
+					if(vectorSellStocks.size() == 0){
+						System.out.println("rien à vendre");
+						return;		
+					}
+					
 					portfolio.stocksSell(currentDay,vectorSellStocks);
 					cash = portfolio.getCash(currentDay);
 				}
@@ -173,7 +199,6 @@ public abstract class PoliticBase implements Politic{
 		Iterator<Stock> itr=vectorNotActiveStocks.iterator();
 		while(itr.hasNext()){
 			Stock s =itr.next();
-			s.sortBy=0; // pour sort sur perf
 			s.perf=perfStockForPurchase(currentDay, portfolio.id_portfolio,s);
 //			System.out.println("--->"+s.code+" "+s.perf);
 		}
@@ -187,6 +212,7 @@ public abstract class PoliticBase implements Politic{
 		int nbToPurchaseMax = cash.divide(BigDecimal.valueOf(5000.),0,RoundingMode.HALF_DOWN).intValue();
 		nbToPurchase = Math.min(nbToPurchaseMax,nbToPurchase);
 		
+		Stock.sortBy=0;
 		Collections.sort(vectorNotActiveStocks); // moins perfo.
 		itr = vectorNotActiveStocks.iterator();
 		int nbPossibleToPurchase = 0;
@@ -221,14 +247,14 @@ public abstract class PoliticBase implements Politic{
 		if(vectorPurchaseStocks.size()>0)portfolio.stocksPurchase(currentDay,vectorPurchaseStocks);
 	}
 
-	private void saveSellPerf(Date date, Stock s) throws SQLException {
-		String req = String.format("INSERT INTO sellperf (date,id_portfolio,id_stock,perf) "
-				+ "VALUES ('%s',%s,%s,%s)",
-				date,portfolio.id_portfolio,s.id_stock,s.perf);
-			    System.out.println(req);
-		Statement stm = Portfolio.conn.createStatement();
-		stm.executeUpdate(req);	
-	}
+//	private void saveSellPerf(Date date, Stock s) throws SQLException {
+//		String req = String.format("INSERT INTO sellperf (date,id_portfolio,id_stock,perf,since) "
+//				+ "VALUES ('%s',%s,%s,%s,%s)",
+//				date,portfolio.id_portfolio,s.id_stock,s.perf,s.since);
+////			    System.out.println(req);
+//		Statement stm = Portfolio.conn.createStatement();
+//		stm.executeUpdate(req);	
+//	}
 
 	public abstract double perfStockForSell(Date currentDay, int portfolio, Stock s) throws SQLException;// throws SQLException {	
 
@@ -277,4 +303,9 @@ public abstract class PoliticBase implements Politic{
 	public void setPurchaseThreshold(double purchaseThreshold) {
 		this.purchaseThreshold = purchaseThreshold;
 	}
+
+	public void setMaxMonth(int maxMonth) {
+		this.maxMonth = maxMonth;
+	}
+
 }

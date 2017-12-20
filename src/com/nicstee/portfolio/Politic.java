@@ -1,6 +1,7 @@
 package com.nicstee.portfolio;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.util.Vector;
@@ -17,4 +18,6 @@ public interface Politic {
 	public void setEndArbitration(Date endArbitration);
 	public void setArbitrationCycle(int arbitrationCycle);
 	public void setPerfPeriodForPurchase(int perfPeriodForPurchase);
+	public void setMaxMonth(int maxMonth);
+	public BigDecimal initData(BigDecimal cash, Date creation);
 }

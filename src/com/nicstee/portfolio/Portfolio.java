@@ -1,5 +1,9 @@
 package com.nicstee.portfolio;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -9,9 +13,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.Vector;
+
+import com.nicstee.portfolio.dbLoading.CSVUtils;
 
 public class Portfolio {
 
@@ -31,11 +38,12 @@ public class Portfolio {
 	boolean printStatus = true;
 	Date dCreation;
 	Date dFin;
-//	double commission;
 	Politic politic;
 
 	String name ;
 	int bank;
+	public Vector <Stock> saveVectorActiveStocks;
+
 	BigDecimal startCash; 
 	BigDecimal lastAmount = BigDecimal.valueOf(0.);	
 	
@@ -57,21 +65,21 @@ public class Portfolio {
 		}else{
 			System.out.println("no connexion to database Portlfolio !!!");
 		}
-		generationHistoricDetails(name);
+//		generationHistoricDetails(name);
 	}
 
-	@SuppressWarnings("deprecation")
-	public Portfolio(String name, Politic politic, String creation, String fin, double cash, double commissionPourcent) throws SQLException, IOException {
-		this.politic=politic;
-		this.politic.setPortfolio(this);
-//		this.commission=commissionPourcent/100.;
-		this.name=name;
-		dCreation = Date.valueOf(creation);
-		dCreation.setDate(1); // begin of month
-		dFin = Date.valueOf(fin);
-		startCash = new BigDecimal(cash);
-		generationPortfolio();
-	}
+//	@SuppressWarnings("deprecation")
+//	public Portfolio(String name, Politic politic, String creation, String fin, double cash, double commissionPourcent) throws SQLException, IOException {
+//		this.politic=politic;
+//		this.politic.setPortfolio(this);
+////		this.commission=commissionPourcent/100.;
+//		this.name=name;
+//		dCreation = Date.valueOf(creation);
+//		dCreation.setDate(1); // begin of month
+//		dFin = Date.valueOf(fin);
+//		startCash = new BigDecimal(cash);
+//		generationPortfolio();
+//	}
 
 	public Portfolio() throws SQLException, IOException {
 	}
@@ -80,6 +88,26 @@ public class Portfolio {
 		id_portfolio = creationPortfolio();
 		insertMovement(dCreation, startCash,OP_INVESTMENT, "Initial investment");
 		politic.initPortfolio(startCash,dCreation); // stocks, first loading
+		if(this.printStatus)System.out.println("-------------------------------------------------------------------------");
+		generationHistoricMovements();
+		savePerformance(dFin);
+	}
+
+	void generationPortfolio (String file) throws SQLException, IOException{
+		id_portfolio = creationPortfolio();
+		insertMovement(dCreation, startCash,OP_INVESTMENT, "Initial investment");
+		loadingPortfolio(dCreation,file); // stocks, first loading
+		politic.initData(startCash, dCreation);
+		if(this.printStatus)System.out.println("-------------------------------------------------------------------------");
+		generationHistoricMovements();
+		savePerformance(dFin);
+	}
+	
+	void generationPortfolio (Vector<Stock> saveVectorActiveStocks) throws SQLException, IOException{
+		id_portfolio = creationPortfolio();
+		insertMovement(dCreation, startCash,OP_INVESTMENT, "Initial investment");
+		loadingPortfolio(dCreation,saveVectorActiveStocks); // stocks, first loading
+		politic.initData(startCash, dCreation);
 		if(this.printStatus)System.out.println("-------------------------------------------------------------------------");
 		generationHistoricMovements();
 		savePerformance(dFin);
@@ -156,7 +184,7 @@ public class Portfolio {
 			sx.amount = sx.quoteEur.multiply(new BigDecimal(-sx.quantity));
 			if(sx.quantity <= 0 )return;
 		}
-		sx.cost = getCost(sx);
+		sx.cost = getComAndTOB(sx);
 		String req = String.format("INSERT INTO movements (id_stock,id_portfolio,quantity,quote,date,amount,type,comment) "
 				+ "VALUES (%s,%s,%s,%s,'%s',%s,%s,'%s')",
 				id_stock,id_portfolio,sx.quantity,sx.quoteEur,date,sx.amount,Portfolio.OP_STOCK_IN,"stocks purchase cost");
@@ -182,7 +210,7 @@ public class Portfolio {
 		int currentQuantity= getQuantity(date,id_stock);
 		if(sx.quantity > getQuantity(date,id_stock))sx.quantity=currentQuantity;
 		sx.amount = sx.quoteEur.multiply(new BigDecimal(sx.quantity));
-		sx.cost = getCost(sx);
+		sx.cost = getComAndTOB(sx);
 		String req = String.format("INSERT INTO movements (id_stock,id_portfolio,quantity,quote,date,amount,type,comment) "
 				+ "VALUES ('%s','%s','%s','%s','%s',%s,%s,'%s')",
 				id_stock,id_portfolio,-sx.quantity,sx.quoteEur,date,sx.amount,Portfolio.OP_STOCK_OUT,"stocks sell cost");
@@ -199,7 +227,8 @@ public class Portfolio {
 		if(this.bank == Portfolio.BINCKBANCK)return;
 		if(this.bank == Portfolio.ING){
 			BigDecimal cost = BigDecimal.valueOf(0.);
-			double tx = -(.0015 + .0005)*1.21/12.;
+//			double tx = -(.0015 + .0005)*1.21/12.; //actuellement
+			double tx = -.0025/12.; // agios
 			String req = String.format("select samount from temporaire "
 				+ "where id_portfolio = %s and date < '%s' order by date desc limit 1;",
 					id_portfolio,date);
@@ -209,6 +238,7 @@ public class Portfolio {
 			if(rs.next()){
 			 cost=rs.getBigDecimal("samount");
 			 cost=(cost.multiply(BigDecimal.valueOf(tx)).setScale(2,BigDecimal.ROUND_HALF_EVEN));
+			 cost=cost.add(BigDecimal.valueOf(41.66));// droite de garde
 //			 System.out.println("samount " + cost);
 			}
 			else{
@@ -229,12 +259,12 @@ public class Portfolio {
 	}
 
 
-	public BigDecimal getCost(Stock s) {
+	public BigDecimal getComAndTOB(Stock s) {
 		// TOB
 		BigDecimal amount = s.amount.abs();
 		BigDecimal commission = new BigDecimal(0.);
 		if(s.pays.compareTo("BE") == 0)
-			commission=amount.multiply(BigDecimal.valueOf(.0009)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+			commission=amount.multiply(BigDecimal.valueOf(.0012)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
 		else
 			commission=amount.multiply(BigDecimal.valueOf(.0035)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
 		// frais bancaire
@@ -248,7 +278,7 @@ public class Portfolio {
 	}
 
 	private BigDecimal getCommissionIng(Stock s) {
-		return s.amount.abs().multiply(BigDecimal.valueOf(.0025)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+		return s.amount.abs().multiply(BigDecimal.valueOf(.00375)).setScale(2, BigDecimal.ROUND_HALF_EVEN);
 	}
 	
 	private BigDecimal getCommissionBinckBank(Stock s) {
@@ -303,6 +333,7 @@ public class Portfolio {
 
 	void generationHistoricMovements() throws SQLException, IOException {
 		Date currentDay = getDateAfter(dCreation);
+		Vector<Stock> vectorActiveStocks = null;
 		while(! currentDay.after(dFin)){
 			if(currentDay.getDate() == 1)setAgios(currentDay);
 			ResultSet rs = getActiveStocks(currentDay);
@@ -311,7 +342,7 @@ public class Portfolio {
 			while (rs.next()) dividendsInMovement(currentDay,rs.getInt("id_stock"));
 			// FIN
 			// arbitrage/titres
-			Vector<Stock> vectorActiveStocks =  politic.arbitrationStocks(currentDay);
+			vectorActiveStocks =  politic.arbitrationStocks(currentDay);
 			if(vectorActiveStocks != null){
 				//		impression
 				if(printStatus)printPortfolio(currentDay,vectorActiveStocks);
@@ -327,61 +358,65 @@ public class Portfolio {
 		//		  System.out.println(req);
 		Statement stmt = conn.createStatement();
 		stmt.executeUpdate(req);
+		savePortfolio();
 
 	}
 
 	private void saveStatistic(Date currentDay) throws SQLException {
 		Vector<Stock> vectorActiveStocks =	this.getVectorActiveStocks(currentDay);
 		BigDecimal sAmount = BigDecimal.valueOf(0.);
-		java.util.Iterator<Stock> itr = vectorActiveStocks.iterator();
+		BigDecimal sAmountPurchase = BigDecimal.valueOf(0.);
+			java.util.Iterator<Stock> itr = vectorActiveStocks.iterator();
 		while(itr.hasNext()){
 			Stock s =itr.next();
-			BigDecimal amount = s.quoteEur.multiply(BigDecimal.valueOf(s.quantity));
-			sAmount = sAmount.add(amount);
-		}
+	//		BigDecimal amount = s.quoteEur.multiply(BigDecimal.valueOf(s.quantity));
+			sAmount = sAmount.add(s.amount);
+			sAmountPurchase = sAmountPurchase.add(s.amountPurchase);
+				}
+		BigDecimal beneficeOnPurchase = sAmount.subtract(sAmountPurchase);
 		BigDecimal cash = getCash(currentDay);
 		sAmount = sAmount.add(cash);
 		System.out.print("Vendredi du " + currentDay + " val. portefeuille " + sAmount);
 		BigDecimal perfSem = ((sAmount.multiply(BigDecimal.valueOf(100.)))
 				.divide(lastAmount,2,BigDecimal.ROUND_UP)).subtract(BigDecimal.valueOf(100.));
-		System.out.println(" valeur précédente " + lastAmount + " " +perfSem );
+		System.out.println(" valeur précédente " + lastAmount + " benef. on  purch. " + beneficeOnPurchase + " " +perfSem );
 		String req = String.format(
-				"INSERT INTO temporaire (id_portfolio,date,samount,lastamount,perfSem) "
-				+ "VALUES (%s,'%s',%s,%s,%s)",
-				id_portfolio,currentDay,sAmount,lastAmount,perfSem);
-		//	    System.out.println(req);
+				"INSERT INTO temporaire (id_portfolio,date,samount,lastamount,beneficeOnPurchase,perfSem) "
+				+ "VALUES (%s,'%s',%s,%s,%s,%s)",
+				id_portfolio,currentDay,sAmount,lastAmount,beneficeOnPurchase,perfSem);
+//			    System.out.println(req);
 		Statement stm = Portfolio.conn.createStatement();
 		stm.executeUpdate(req);	
 		
 		lastAmount=sAmount;
 	}
 
-	public void generationHistoricDetails(String name)throws SQLException {
-		Statement stmt = Portfolio.conn.createStatement();
-		String req = String.format("select * from portfolios where name = '%s'",name.trim());
-		ResultSet rs = stmt.executeQuery(req);
-		if(!rs.next()){
-			System.out.print("Portefeuille inconnu !!!");
-			return;
-		}
-		if(! rs.getBoolean("status")){
-			System.out.println("Portefeuille incomplet !!!");
-			return;
-		}
-		name=rs.getString("name").trim();
-		id_portfolio=rs.getInt("id");
-		dCreation=rs.getDate("creation");
-		dFin=rs.getDate("fin");
-		req = String.format("delete from details where id_portfolio = %s",id_portfolio);
-		stmt.executeUpdate(req);
-		Calendar cal = Calendar.getInstance();
-		if(this.printStatus)System.out.println( "Démarrage génération des détails de " + name + " debut " + dCreation + " fin " + dFin +
-				" à " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()) );
-		startHistoricDetails();
-		cal = Calendar.getInstance();
-		System.out.println("Fin de la génération à  " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()));
-
-	}
+//	public void generationHistoricDetails(String name)throws SQLException {
+//		Statement stmt = Portfolio.conn.createStatement();
+//		String req = String.format("select * from portfolios where name = '%s'",name.trim());
+//		ResultSet rs = stmt.executeQuery(req);
+//		if(!rs.next()){
+//			System.out.print("Portefeuille inconnu !!!");
+//			return;
+//		}
+//		if(! rs.getBoolean("status")){
+//			System.out.println("Portefeuille incomplet !!!");
+//			return;
+//		}
+//		name=rs.getString("name").trim();
+//		id_portfolio=rs.getInt("id");
+//		dCreation=rs.getDate("creation");
+//		dFin=rs.getDate("fin");
+//		req = String.format("delete from details where id_portfolio = %s",id_portfolio);
+//		stmt.executeUpdate(req);
+//		Calendar cal = Calendar.getInstance();
+//		if(this.printStatus)System.out.println( "Démarrage génération des détails de " + name + " debut " + dCreation + " fin " + dFin +
+//				" à " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()) );
+//		startHistoricDetails();
+//		cal = Calendar.getInstance();
+//		System.out.println("Fin de la génération à  " + new SimpleDateFormat("HH:mm:ss").format(cal.getTime()));
+//
+//	}
 
 	@SuppressWarnings("deprecation")
 	private void startHistoricDetails() throws SQLException {
@@ -482,7 +517,18 @@ public class Portfolio {
 			s.amount=BigDecimal.valueOf(s.quantity).multiply(s.quoteEur);
 			s.quotePurchEur=getQuotePurch(day,id_stock);
 			s.amountPurchase=BigDecimal.valueOf(s.quantity).multiply(s.quotePurchEur);
-			s.perf=(s.amount.divide(s.amountPurchase, 4, BigDecimal.ROUND_HALF_EVEN)).doubleValue();
+			s.perf=politic.perfStockForSell(day, since, s);
+//			System.out.print(s.code);
+//			System.out.print(" s.amount = " + s.amount);
+//			System.out.print(" s.amountPurchase = " + s.amountPurchase);
+//			System.out.print(" s.cost = " + s.cost);
+//			System.out.print(" s.date = " + s.date);
+//			System.out.print(" s.quoteEur = " + s.quoteEur);
+//			System.out.print(" s.quotePurchEur = " + s.quotePurchEur);
+//			System.out.print(" s.currency = " + s.currency);
+//			System.out.print(" s.since = " + s.since);
+//			System.out.print(" s.pays = " + s.pays);
+//			System.out.println(" s.perf = " + s.perf);
 			vectorActiveStocks.add(s);
 		}
 		return vectorActiveStocks;
@@ -581,13 +627,20 @@ public class Portfolio {
 	void printVectorStocks(String string, Date date, Vector<Stock> vectorStocks) throws SQLException {
 		System.out.println(string + " le " + date);
 		for(Stock s : vectorStocks){
+			if( s.sellType > 0){
+				if(s.sellType==1)System.out.print(" - perf. et en dessous seuil");
+				if(s.sellType==2)System.out.print(" pour + performance");
+				if(s.sellType==3)System.out.print(" + 10 % -> 1/2 vendues");
+				if(s.sellType==4)System.out.print(" trop longtemps en port.");
+			}
 			System.out.print(" " + s.id_stock);			
 			System.out.print(" " + s.code);
 			System.out.print(" quantité "+ s.quantity);
 			System.out.print(" cotation "+ s.quoteEur);
 			System.out.print(" montant "+ s.amount);
 			System.out.print(" coût "+ s.cost);
-			System.out.print(" perf "+ BigDecimal.valueOf(s.perf).setScale(3, BigDecimal.ROUND_HALF_EVEN));
+			double sperf=(1./s.perf-1.)*100.;
+			System.out.print(" perf "+ BigDecimal.valueOf(sperf).setScale(2, BigDecimal.ROUND_HALF_EVEN)+"%");
 			System.out.print(" date "+s.date);
 			System.out.println(" since "+ s.since);
 		}
@@ -734,4 +787,73 @@ public class Portfolio {
 		this.bank = bank;
 	}
 	
+	public Vector<Stock> getSaveVectorActiveStocks() {
+		return saveVectorActiveStocks;
+	}
+	
+	private void loadingPortfolio(Date creation, String csvFile) throws SQLException {
+		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
+		BufferedReader br = null;
+	    String line = "";
+	    String cvsSplitBy = ";";
+	    try {
+	        br = new BufferedReader(new FileReader(csvFile));
+	        while ((line = br.readLine()) != null) {
+	            String[] ligne = line.split(cvsSplitBy);
+//	            System.out.println("code= " + ligne[1].trim() + " , quantite=" + ligne[2].trim());
+	            Stock s = new Stock(creation,Integer.parseInt(ligne[1].trim()));
+	            s.quantity=Integer.parseInt(ligne[2].trim());
+	            vectorPurchaseStocks.add(s);
+	        }
+	        stocksPurchase(creation,vectorPurchaseStocks);
+//	        printVectorStocks("Start",creation,vectorPurchaseStocks);        
+	    } catch (FileNotFoundException e) {
+	        e.printStackTrace();
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	    } finally {
+	        if (br != null) {
+	            try {
+	                br.close();
+	            } catch (IOException e) {
+	                e.printStackTrace();
+	            }
+	        }
+	    }
+	}
+	
+	private void loadingPortfolio(Date creation, Vector<Stock> saveVectorActiveStocks) throws SQLException, IOException {
+		Iterator<Stock> itr = saveVectorActiveStocks.iterator();
+		double samount = 0.;
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			samount=samount + s.amount.doubleValue();
+		}
+		itr = saveVectorActiveStocks.iterator();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			System.out.print(s.id_stock + " " + s.quantity + " -> ");
+			s.quantity= (int) Math.round((1000000.*s.quantity)/samount);
+			System.out.println(" "+s.quantity);
+		}
+	        stocksPurchase(creation,saveVectorActiveStocks);
+	}
+
+	public void savePortfolio() throws IOException, SQLException {
+		String csvFile = "C:/Users/claude/Desktop/R folder/downloads/outputPortfolio.csv";
+		FileWriter writer = new FileWriter(csvFile);
+		saveVectorActiveStocks=getVectorActiveStocks(dFin);
+		this.printVectorStocks("Saved Portfolio", dFin, saveVectorActiveStocks);
+		Iterator<Stock> itr = saveVectorActiveStocks.iterator();
+		while(itr.hasNext()){
+			Stock s =itr.next();
+			CSVUtils.writeLine(writer,
+				Arrays.asList(String.valueOf(id_portfolio),String.valueOf(s.id_stock),
+						String.valueOf(s.quantity),String.valueOf(s.quoteEur)));
+		}
+		writer.flush();
+		writer.close();
+		
+	}
+
 }

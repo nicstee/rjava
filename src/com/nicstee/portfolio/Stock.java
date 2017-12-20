@@ -8,21 +8,24 @@ import java.sql.Statement;
 
 public class Stock implements Comparable<Stock>
 {
+	public static int sortBy = 0; // 0 -> perf ; 1 -> amount;
+
 	public int id_stock;
 	public int quantity;
 	public String name;
 	public String code;
-	public double perf;
-	public BigDecimal amount;
-	public BigDecimal amountPurchase;
-	public BigDecimal cost;
-	public Date date;
-	public BigDecimal quoteEur;
-	public BigDecimal quotePurchEur;
+	public double perf =999.;
+	public double perf_since;
+	public BigDecimal amount = BigDecimal.valueOf(0.);
+	public BigDecimal amountPurchase = BigDecimal.valueOf(0.);
+	public BigDecimal cost = BigDecimal.valueOf(0.) ;
+	public Date date = Date.valueOf("2001-01-01");
+	public BigDecimal quoteEur = BigDecimal.valueOf(0.);
+	public BigDecimal quotePurchEur = BigDecimal.valueOf(0.);
 	public String currency;
 	public int since = 0; // en mois
-	public int sortBy = 0; // 0 -> perf ; 1 -> amount;
 	public String pays;
+	public int sellType = 0; //type indéfini
 	
 	public Stock(Date date, int id_stock) throws SQLException
 	{
@@ -39,6 +42,7 @@ public class Stock implements Comparable<Stock>
 	    	  this.currency=rs.getString("currency").trim();
 	    	  this.date = date;
 	    	  this.pays = rs.getString("pays").trim();
+	    	  this.perf = 999.;
  	}
 	
 	public Stock getInvertedPoint() throws SQLException
@@ -48,13 +52,17 @@ public class Stock implements Comparable<Stock>
 
 	@Override
 	public int compareTo(Stock other) {
-		    switch (sortBy) {
-		    case 0: // Sort by perf
+		    switch (Stock.sortBy) {
+		    case 0: // Sort by perf décroissant
 		    	if (this.perf < other.perf) return -1;
 		    	if (this.perf > other.perf) return 1;
 		    	return 0;
-		    default: // Sort by amount
+		    case 1: // Sort by amount
 		    	return amount.compareTo(other.amount);
+		    default: // Sort by perf croissant
+		    	if (this.perf < other.perf) return -1;
+		    	if (this.perf > other.perf) return 1;
+		    	return 0;
 	    }
 
 	}

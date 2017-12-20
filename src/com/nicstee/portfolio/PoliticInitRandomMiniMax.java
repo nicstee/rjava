@@ -16,7 +16,7 @@ public class PoliticInitRandomMiniMax extends PoliticBase{
 		rd.setSeed(seed);
 	}
 
-		public double perfStockForSell(Date currentDay,int id_portfolio, Stock s) throws SQLException {
+	public double perfStockForSell(Date currentDay,int id_portfolio, Stock s) throws SQLException {
 		double perf=s.amountPurchase.divide(s.amount,3,BigDecimal.ROUND_HALF_DOWN).doubleValue();
 		perf=Math.pow(perf, (1./s.since));
 		return perf; // attention selection sur le minimum 
@@ -28,15 +28,16 @@ public class PoliticInitRandomMiniMax extends PoliticBase{
 		try {
 			stmt = Portfolio.conn.createStatement();
 			String req = String.format( // selection rapport prix actuel / prix 30 jrs  chute la + forte sur 30 jrs
-					"select coalesce(quoteStockEur(date '%s',%s)" //
-					+ "/quoteStockEur(date '%s' - %s,%s),1.) as performance",
-					currentDay,s.id_stock,currentDay,perfPeriodForPurchase,s.id_stock);
+			"select %s/quoteStockEur(date '%s' - %s,%s) as performance",
+			s.quoteEur,currentDay,perfPeriodForPurchase,s.id_stock);
+//					System.out.println(req);
 			ResultSet rs = stmt.executeQuery(req);
 			if(!rs.next())return 1.;
 			perf = rs.getBigDecimal("performance").doubleValue();
 		} catch (SQLException e) {
 			return 999.; // pour empecher un achat
 		}
+//		System.out.println("id_stock " + s.id_stock + " perf achat " + perf);
 		return perf; // attention selection sur le minimum 
 	}
 
