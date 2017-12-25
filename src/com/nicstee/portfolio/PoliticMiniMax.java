@@ -38,8 +38,4 @@ public class PoliticMiniMax extends PoliticBase{
 		return perfStockForPurchase(currentDay,portfolio,s);
 	}
 
-	public void setPerfPeriodForPurchase(int perfPeriodForPurchase) {
-		this.perfPeriodForPurchase = perfPeriodForPurchase;
-	}
-
 }

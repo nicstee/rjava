@@ -19,5 +19,6 @@ public interface Politic {
 	public void setArbitrationCycle(int arbitrationCycle);
 	public void setPerfPeriodForPurchase(int perfPeriodForPurchase);
 	public void setMaxMonth(int maxMonth);
+	public void setPenteMth(int penteMth);
 	public BigDecimal initData(BigDecimal cash, Date creation);
 }

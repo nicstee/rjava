@@ -17,18 +17,20 @@ import java.util.Vector;
 
 public abstract class PoliticBase implements Politic{
 
+	public DymParamLMH dymParamLMH;
+	public int perfPeriodForPurchase = 30; // en jours
+	public double purchaseThreshold = .95;
+	public int maxMonth = 12;
+
 	public int minimumInPortfolio = 0; // en mois
 	public int arbitrationDay = 3;
 	public int maxStocks = 12;
 	public int firstArbitrationMonth = 3;
 	public Date endArbitration = Date.valueOf("2017-09-15");
 	public int arbitrationCycle = 1;
+	public double sellThreshold = .0;
+	public int penteMth = 13;
 	
-	public int perfPeriodForPurchase = 30; // en jours
-	public double sellThreshold = .66;
-	public double purchaseThreshold = .95;
-	public int maxMonth = 12;
-
 	public Vector <Stock> vectorActiveStocks;
 	public Vector <Stock> vectorSellStocks;
 	public Vector <Stock> vectorNotActiveStocks;
@@ -37,12 +39,12 @@ public abstract class PoliticBase implements Politic{
 	Portfolio portfolio;
 
 	BigDecimal maxValueStock;
-//	BigDecimal minValueStock;
 
 	public void initPortfolio(BigDecimal cash, Date creation) throws SQLException, IOException{
 
 		BigDecimal inv_by_stock=initData(cash,creation);
 //
+		loadParam(creation);
 		Vector<Stock> vectorPurchaseStocks = new Vector<Stock>();
 		Statement stmt = Portfolio.conn.createStatement();
 		String req = String.format("SELECT id FROM stocks where actived and firstquote <= '%s' order by id",creation);
@@ -95,10 +97,38 @@ public abstract class PoliticBase implements Politic{
 		if(currentDay.before(endArbitration))return null;
 		if(currentDay.getDate() != arbitrationDay)return null;
 		if(currentDay.getMonth()%arbitrationCycle != 0)return null;
+		loadParam(currentDay);
 		vectorActiveStocks = portfolio.getVectorActiveStocks(currentDay); // sort by amount
 		vectorNotActiveStocks = portfolio.getVectorNotActiveStocks(currentDay);
 		arbitration(currentDay);
 		return vectorActiveStocks;
+	}
+
+	private void loadParam(Date currentDay) throws SQLException {
+		String req = String.format("select COALESCE((select samount from temporaire where id_portfolio="
+				+ "%s and date <= date(date("
+				+ "'%s') - interval "
+				+ "'%s weeks') order by date desc limit 1)/ (select samount from temporaire where id_portfolio="
+				+ "%s and date <= "
+				+ "'%s' order by date desc limit 1),1.) as pente",
+				portfolio.id_portfolio,currentDay,penteMth,portfolio.id_portfolio,currentDay);
+//		System.out.println(req);
+		double pente= 1.;
+		Statement stmt = Portfolio.conn.createStatement();
+		ResultSet rs = stmt.executeQuery(req);
+		if(rs.next())pente=Math.pow(rs.getBigDecimal("pente").doubleValue(),52./penteMth);
+		pente=1./pente;
+		if(pente < 1.){ //low
+			this.maxMonth=dymParamLMH.dymParamLow.maxMonth;
+			this.perfPeriodForPurchase=dymParamLMH.dymParamLow.perfPeriodForPurchase;
+			this.purchaseThreshold=dymParamLMH.dymParamLow.purchaseThreshold;
+			System.out.println(" Status Low " + pente);
+		}else{
+			this.maxMonth=dymParamLMH.dymParamHigh.maxMonth;
+			this.perfPeriodForPurchase=dymParamLMH.dymParamHigh.perfPeriodForPurchase;
+			this.purchaseThreshold=dymParamLMH.dymParamHigh.purchaseThreshold;			
+			System.out.println(" Status high "+pente);
+		}
 	}
 
 	private void arbitration(Date currentDay) throws SQLException, IOException{
@@ -291,7 +321,7 @@ public abstract class PoliticBase implements Politic{
 	public void setArbitrationCycle(int arbitrationCycle){
 		this.arbitrationCycle = arbitrationCycle;
 	}
-
+//----------------------------------------------------
 	public void setPerfPeriodForPurchase( int perfPeriodForPurchase){
 		this.perfPeriodForPurchase = perfPeriodForPurchase;
 	}
@@ -308,4 +338,12 @@ public abstract class PoliticBase implements Politic{
 		this.maxMonth = maxMonth;
 	}
 
+	public void setDymParamLMH(DymParamLMH dymParamLMH) {
+		this.dymParamLMH=dymParamLMH;
+	}
+
+	public void setPenteMth(int penteMth) {
+		this.penteMth = penteMth;
+	}
+	
 }
