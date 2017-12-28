@@ -1,25 +1,17 @@
 package com.nicstee.portfolio;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 
-public class PortfolioGeneration {
+public class PortfolioGenerationRestart {
 
 	public static void main(String[] args) throws SQLException, IOException {
-		DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-		Calendar c = Calendar.getInstance();
-		String d = dateFormat.format(c.getTime());
-
 		DymParam dymParamHigh = new DymParam(15,20,0.925);
 		DymParam dymParamMedium = new DymParam(15,20,0.925);
 		DymParam dymParamLow = new DymParam(9,40,0.975);		
 		DymParamLMH dymParamLMH =new DymParamLMH(dymParamLow,dymParamMedium,dymParamHigh);
 
-		String name=null;
+
 		PoliticMiniMax politic = new PoliticMiniMax();
 		politic.setMaxStocks(40); // nbre d'actions dans le portefeuillz
 		politic.setArbitrationDay(3); // jour du mois pour les arbitrages
@@ -31,19 +23,11 @@ public class PortfolioGeneration {
 
 		Portfolio portfolio = new Portfolio();
 		portfolio.setPolitic(politic);
-		portfolio.setdCreation("2017-12-01");
-		portfolio.setdFin("2017-12-31");
-		portfolio.setStartCash(BigDecimal.valueOf(1000000.));
+		portfolio.setdFin("2017-12-15");
 		portfolio.setBank(Portfolio.BINCKBANCK);
-		name = String.format("%s;BQ%s;PMTH%sj;MIN%sm;C%sm",
-				d,portfolio.bank,politic.penteMth,politic.maxStocks,
-				politic.minimumInPortfolio,politic.arbitrationCycle);
-		portfolio.setName(name);
-		System.out.println("*** Paramètres ***");
-		System.out.println(name);
-		
-		portfolio.generationPortfolio();
-		
+
+		portfolio.generationPortfolio(2536);
+
 		System.out.println("END PHASE");
 	}
 }

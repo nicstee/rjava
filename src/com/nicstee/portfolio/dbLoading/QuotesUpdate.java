@@ -40,6 +40,7 @@ public class QuotesUpdate {
 			while (resultats.next()) {
 				int id_stock = resultats.getInt("id");
 				String symbol = resultats.getString("code").trim();
+				if(symbol.compareTo("CON.DE")==0)continue;
 				int quotes_status = resultats.getInt("quotes_status");
 				int dividends_status = resultats.getInt("dividends_status");
 //				boolean actived = resultats.getBoolean("actived");

@@ -20,5 +20,6 @@ public interface Politic {
 	public void setPerfPeriodForPurchase(int perfPeriodForPurchase);
 	public void setMaxMonth(int maxMonth);
 	public void setPenteMth(int penteMth);
+	public void loadParam(Date currentDay) throws SQLException;
 	public BigDecimal initData(BigDecimal cash, Date creation);
 }

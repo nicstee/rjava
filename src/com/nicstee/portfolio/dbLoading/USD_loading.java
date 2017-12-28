@@ -20,7 +20,7 @@ public class USD_loading {
             System.out.println("Connected to database Portefeuille");
         }else System.exit(999);
         
-        String csvFile = "C:/Users/claude/Desktop/R folder/downloads/exchange.csv";
+        String csvFile = "C:/Users/claude/Desktop/R folder/downloads/exchange02.csv";
         BufferedReader br = null;
         String line = "";
         String cvsSplitBy = ",";
@@ -31,12 +31,12 @@ public class USD_loading {
             while ((line = br.readLine()) != null) {
                 String[] ligne = line.split(cvsSplitBy);
                 System.out.println("date= " + ligne[0] + " , tx=" + ligne[1]);
-                String req = String.format("INSERT INTO exchange " +
-  		              "(code,date,taux) " +
+                String req = String.format("INSERT INTO exchangerates " +
+  		              "(currency,date,rate) " +
   		              "VALUES ('%s','%s','%s')","USD",ligne[0],new BigDecimal(ligne[1]));
 //  		              System.out.println(req);
   		              Statement stmt1 = conn.createStatement();
-  		              stmt1.executeUpdate(req);
+ 		              stmt1.executeUpdate(req);
 
             }
 

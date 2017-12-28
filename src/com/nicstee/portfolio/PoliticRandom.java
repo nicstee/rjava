@@ -7,10 +7,9 @@ import java.util.Random;
 public class PoliticRandom extends PoliticBase implements Politic{
 	
 	Random rd;
-
-	//	public PoliticRandom(long seed, int maxStocks, int nbMonthToStartArbitration, int monthDayForArbitration) {
-	//		super(seed, maxStocks, nbMonthToStartArbitration, monthDayForArbitration);
-	//	}
+	
+	public void loadParam(Date currentDay) throws SQLException {		
+	}
 	
 	public void setSeed(long seed){
 		rd = new Random();
@@ -32,6 +31,5 @@ public class PoliticRandom extends PoliticBase implements Politic{
 	public double perfStockForPurchaseInit(Date currentDay, int portfolio, Stock s) throws SQLException {
 		return perfStockForPurchase(currentDay,portfolio,s);
 	}
-
 
 }

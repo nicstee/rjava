@@ -22,7 +22,7 @@ public class PortfolioGenerationRandom {
 			politic.setSeed(seed);
 			politic.setMaxStocks(20);
 			politic.setArbitrationDay(3);
-			politic.setFirstArbitrationMonth(999); // pas d'arbitrage
+			politic.setFirstArbitrationMonth(1);
 			politic.setMinimumInPortfolio(0);
 
 			Portfolio portfolio = new Portfolio();
@@ -39,7 +39,6 @@ public class PortfolioGenerationRandom {
 			
 			portfolio.generationPortfolio();
 
-			// NEXT
 			seed = seed*10 + 1;
 		}
 		System.out.println("END");
