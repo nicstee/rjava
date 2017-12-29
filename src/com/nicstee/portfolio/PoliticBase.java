@@ -49,6 +49,7 @@ public abstract class PoliticBase implements Politic{
 			int id_stock = rs.getInt("id");
 			Stock s = new Stock(creation,id_stock);
 			s.perf = perfStockForPurchaseInit(creation, portfolio.id_portfolio, s);
+		//	System.out.println(s.id_stock + " "+s.perf);
 			//			savePerformance(creation,"P",id_stock,s.perf);
 			vectorPurchaseStocks.add(s);
 		}
@@ -66,6 +67,7 @@ public abstract class PoliticBase implements Politic{
 				continue;
 			}
 			s.quantity = inv_by_stock.divide(s.quoteEur,2,RoundingMode.HALF_DOWN).intValue();
+		//	System.out.println(s.id_stock + " "+s.quantity+" "+s.perf);
 		}
 		System.out.println("");
 		int dim = vectorPurchaseStocks.size();	

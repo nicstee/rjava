@@ -14,10 +14,10 @@ public class PoliticMiniMax extends PoliticBase{
 				+ "'%s') - interval "
 				+ "'%s weeks') order by date desc limit 1)/ (select samount from temporaire where id_portfolio="
 				+ "%s and date <= "
-				+ "'%s' order by date desc limit 1),1.) as pente",
+				+ "'%s' order by date desc limit 1),.0) as pente",
 				portfolio.id_portfolio,currentDay,penteMth,portfolio.id_portfolio,currentDay);
 		//		System.out.println(req);
-		double pente= .999;
+		double pente= 1.;
 		Statement stmt = Portfolio.conn.createStatement();
 		ResultSet rs = stmt.executeQuery(req);
 		if(rs.next())pente=Math.pow(rs.getBigDecimal("pente").doubleValue(),52./penteMth);
@@ -48,9 +48,8 @@ public class PoliticMiniMax extends PoliticBase{
 			String req = String.format( // selection rapport prix actuel / prix 30 jrs  chute la + forte sur 30 jrs
 					"select %s/quoteStockEur(date '%s' - %s,%s) as performance",
 					s.quoteEur,currentDay,perfPeriodForPurchase,s.id_stock);
-			//					System.out.println(req);
 			ResultSet rs = stmt.executeQuery(req);
-			if(!rs.next())return 1.;
+			if(!rs.next())return 999.;
 			perf = rs.getBigDecimal("performance").doubleValue();
 		} catch (SQLException e) {
 			return 999.; // pour empecher un achat
